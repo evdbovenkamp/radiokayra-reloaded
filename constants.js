@@ -114,6 +114,9 @@ export const ICON_STATIONS_PAGE = "playlist-symbolic";
 export const ICON_DELETE_CHANNEL = "user-trash-symbolic";
 export const ICON_EDIT_CHANNEL = "document-edit-symbolic";
 export const ICON_SORT_CHANNELS = "view-sort-descending-symbolic";
+export const ICON_PREVIEW_PLAY = "media-playback-start-symbolic";
+export const ICON_PREVIEW_STOP = "media-playback-stop-symbolic";
+export const PREVIEW_MAX_SECONDS = 20;
 export const ICON_ABOUT = "help-about-symbolic";
 
 export const LOG_PREFIX_UTILS = "Utils";

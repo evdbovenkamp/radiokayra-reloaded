@@ -3,12 +3,25 @@ import Gtk from "gi://Gtk";
 import GLib from 'gi://GLib';
 import Gio from "gi://Gio";
 import Gdk from 'gi://Gdk';
+import GIRepository from "gi://GIRepository";
 import Soup from 'gi://Soup?version=3.0';
 import * as Utils from "./utils.js";
 import * as Constants from "./constants.js";
 import * as PodcastIndex from "./podcastindex.js";
 import { COUNTRIES, flagForCountryCode } from "./countries.js";
 import { gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
+
+//A typelib probe, not an import — never pulls Gst into the module graph,
+//so this stays safe to call even when GStreamer isn't installed at all
+//(mirrors extension.js's isGstreamerAvailable() for the panel player).
+function isGstreamerAvailable() {
+    try {
+        GIRepository.Repository.dup_default().require("Gst", "1.0", 0);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
 
 const MODE_RADIO = "radio";
 const MODE_PODCAST = "podcast";
@@ -22,6 +35,9 @@ export const SearchPageHandler = class SearchPageHandler {
         this._window = kayraPrefs._window;
         this._mode = MODE_RADIO;
         this._lastFeeds = [];
+        this._gstAvailable = isGstreamerAvailable();
+        this._previewPlayer = null; //dynamically imported on first actual use
+        this._activePreviewButton = null;
 
         this._httpSession = new Soup.Session({
             user_agent: Constants.RADIO_BROWSER_USER_AGENT,
@@ -38,6 +54,7 @@ export const SearchPageHandler = class SearchPageHandler {
         });
     }
     clear() {
+        this.stopPreview();
         this._httpSession = null;
     }
 
@@ -107,6 +124,7 @@ export const SearchPageHandler = class SearchPageHandler {
     }
 
     setMode(mode) {
+        this.stopPreview();
         this._mode = mode;
         let isRadio = mode === MODE_RADIO;
         this._searchEntry.title = isRadio ? _("Station name") : _("Search term");
@@ -134,6 +152,7 @@ export const SearchPageHandler = class SearchPageHandler {
         if (this._mode === MODE_RADIO && Utils.isEmptyString(term) && Utils.isEmptyString(countryCode) && Utils.isEmptyString(tag)) return;
         if (this._mode === MODE_PODCAST && Utils.isEmptyString(term)) return;
 
+        this.stopPreview();
         if (this.searchResults) this._searchPage.remove(this.searchResults);
         this.searchResults = new Adw.PreferencesGroup();
         this.searchResults.title = _("Search Results");
@@ -217,11 +236,45 @@ export const SearchPageHandler = class SearchPageHandler {
                 + _("Bitrate: ") + (apiStation.bitrate ?? "?") + "kb/s\n";
 
             act.subtitle = Utils.processSpecialCharacters(subtitle, true);
+
+            let url = apiStation.url_resolved ?? apiStation.url;
+            if (this._gstAvailable && !Utils.isEmptyString(url)) {
+                const previewButton = new Gtk.Button({
+                    valign: Gtk.Align.CENTER,
+                    icon_name: Constants.ICON_PREVIEW_PLAY,
+                    tooltip_text: _("Preview (max %d seconds)").format(Constants.PREVIEW_MAX_SECONDS),
+                });
+                previewButton.get_style_context().add_class("circular");
+                previewButton.connect("clicked", () => this.togglePreview(url, previewButton));
+                act.add_suffix(previewButton);
+            }
+
             const addButton = this.createAddButton(() => this.addRadioChannel(apiStation));
             act.add_suffix(addButton);
             this.loadThumbnail(act, apiStation.favicon);
             this.searchResults.add(act);
         } catch (e) { console.warn(`${Constants.LOG_PREFIX_RADIO_SEARCH} ${Constants.LOG_ERROR_ADD_SEARCH_ROW} [${e}]`); }
+    }
+    //Lets you hear a candidate station before adding it, right from the
+    //search results — capped at PREVIEW_MAX_SECONDS so a forgotten preview
+    //can never keep playing in the background. Only one preview plays at a
+    //time; starting another (or navigating away, see stopPreview() call
+    //sites) stops whatever was previewing before.
+    togglePreview(url, button) {
+        if (this._previewPlayer?.isPlayingUrl(url)) { this._previewPlayer.stop(); return; }
+
+        let start = () => {
+            button.set_icon_name(Constants.ICON_PREVIEW_STOP);
+            this._previewPlayer.play(url, () => button.set_icon_name(Constants.ICON_PREVIEW_PLAY));
+        };
+        if (this._previewPlayer) { start(); return; }
+        import("./previewplayer.js").then(module => {
+            this._previewPlayer = module;
+            start();
+        }).catch(e => console.error(`${Constants.LOG_PREFIX_RADIO_SEARCH} Failed to load previewplayer.js: [${e}]`));
+    }
+    stopPreview() {
+        this._previewPlayer?.stop();
     }
 
     addRadioChannel(channel) {
