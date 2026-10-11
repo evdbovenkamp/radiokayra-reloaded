@@ -55,6 +55,7 @@ export const CastPickerDialog = GObject.registerClass(
         //the dialog was already closed/destroyed by the time it resolves —
         //the caller checks that before calling in.
         showDevices(devices) {
+            console.log(`${Constants.LOG_PREFIX_EXTENSION} CastPicker: showDevices called with ${devices.length} device(s)`);
             this._statusLabel?.destroy();
             this._statusLabel = null;
             if (devices.length === 0) {

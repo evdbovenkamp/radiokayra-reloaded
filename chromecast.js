@@ -66,6 +66,7 @@ export function isAvailable(callback) {
 }
 
 function ensureHelperRunning(callback) {
+    console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: ensureHelperRunning, isReady=${isReady}, proc=${proc !== null}`);
     if (isReady) { callback(); return; }
     readyCallbacks.push(callback);
     if (proc !== null) return; //already starting
@@ -75,6 +76,7 @@ function ensureHelperRunning(callback) {
             flags: Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
         });
         proc = launcher.spawnv(["python3", "-u", getHelperPath()]);
+        console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: helper spawned, pid=${proc.get_identifier()}`);
     } catch (e) {
         console.error(`${Constants.LOG_PREFIX_EXTENSION} Chromecast helper failed to start: [${e}]`);
         flushReadyCallbacks();
@@ -101,7 +103,8 @@ function readLoop() {
         } catch (e) {
             line = null;
         }
-        if (line === null) { onHelperExited(); return; }
+        if (line === null) { console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: helper stdout closed`); onHelperExited(); return; }
+        console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: raw line: [${line}]`);
         handleEvent(line);
         readLoop();
     });
@@ -157,16 +160,23 @@ function handleEvent(line) {
 }
 
 function sendCommand(obj) {
-    if (!stdinStream) return;
+    if (!stdinStream) { console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: sendCommand skipped, no stdinStream`); return; }
     const bytes = new GLib.Bytes(new TextEncoder().encode(JSON.stringify(obj) + "\n"));
     stdinStream.write_bytes_async(bytes, GLib.PRIORITY_DEFAULT, null, (source, result) => {
-        try { source.write_bytes_finish(result); } catch (e) { /* helper likely exited; onHelperExited() will also fire */ }
+        try {
+            source.write_bytes_finish(result);
+            console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: wrote command ${JSON.stringify(obj)}`);
+        } catch (e) {
+            console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: write failed: [${e}]`);
+        }
     });
 }
 
 //callback(devices: [{uuid, name, model}])
 export function discoverDevices(callback) {
+    console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: discoverDevices() called`);
     ensureHelperRunning(() => {
+        console.log(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: sending discover command`);
         discoverCallback = callback;
         discoveredDevices = [];
         sendCommand({ cmd: "discover" });
