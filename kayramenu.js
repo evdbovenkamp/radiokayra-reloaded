@@ -20,6 +20,7 @@ import * as Constants from "./constants.js";
 import * as Positions from "./positions.js";
 import * as MusicBrainz from "./musicbrainz.js";
 import * as Chromecast from "./chromecast.js";
+import * as PopCastPicker from "./popcastpicker.js";
 import * as KayraSearchProvider from "./searchProvider.js";
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -154,7 +155,6 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._currentStreamUrl = null;
             this._castingDeviceUuid = null;
             this._castingDeviceName = null;
-            this._castMenuGeneration = 0;
 
             Chromecast.init(this._path);
             Chromecast.setOnStatusChanged((state, title) => {
@@ -232,12 +232,12 @@ export const RadiokayraMenuButton = GObject.registerClass(
             //Cast Section — optional, requires python3-pychromecast. Hidden
             //entirely when the Settings toggle is off or the dependency isn't
             //installed (see Settings for install instructions); the base
-            //radio/podcast experience never depends on this.
-            this._castMenuItem = new PopupMenu.PopupSubMenuMenuItem(_("Cast to…"));
+            //radio/podcast experience never depends on this. Opens a
+            //dedicated device-picker dialog rather than a nested submenu —
+            //bigger, clearer, and doesn't depend on in-menu submenu toggling.
+            this._castMenuItem = new PopupMenu.PopupImageMenuItem(_("Cast to…"), Gio.icon_new_for_string(this._path + Constants.ICON_CAST_PATH));
             this._castMenuItem.visible = false;
-            this._castMenuItem.menu.connect("open-state-changed", (_menu, open) => {
-                if (open) this.populateCastMenu();
-            });
+            this._castMenuItem.connect("activate", () => this.openCastPicker());
             this.menu.addMenuItem(this._castMenuItem);
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             this.updateCastMenuVisibility();
@@ -667,33 +667,18 @@ export const RadiokayraMenuButton = GObject.registerClass(
             }
             Chromecast.isAvailable((available) => { this._castMenuItem.visible = available; });
         }
-        populateCastMenu() {
-            this._castMenuItem.menu.removeAll();
-            this._castMenuGeneration++;
-            let gen = this._castMenuGeneration;
-
-            if (this._castingDeviceName) {
-                let stopItem = new PopupMenu.PopupMenuItem(_("Stop casting (%s)").format(this._castingDeviceName));
-                stopItem.connect("activate", () => this.stopCasting());
-                this._castMenuItem.menu.addMenuItem(stopItem);
-                this._castMenuItem.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            }
-
-            let searchingItem = new PopupMenu.PopupMenuItem(_("Searching for devices…"), { reactive: false, can_focus: false });
-            this._castMenuItem.menu.addMenuItem(searchingItem);
-
+        openCastPicker() {
+            let dialog = new PopCastPicker.CastPickerDialog(
+                radiokayraPanel._castingDeviceName,
+                (uuid, name) => radiokayraPanel.castCurrentStreamTo(uuid, name),
+                () => radiokayraPanel.stopCasting(),
+            );
+            let closed = false;
+            dialog.connect("destroy", () => { closed = true; });
+            dialog.open();
             Chromecast.discoverDevices((devices) => {
-                if (gen !== this._castMenuGeneration) return; //menu closed/reopened since; this result is stale
-                searchingItem.destroy();
-                if (devices.length === 0) {
-                    this._castMenuItem.menu.addMenuItem(new PopupMenu.PopupMenuItem(_("No devices found"), { reactive: false, can_focus: false }));
-                    return;
-                }
-                devices.forEach((device) => {
-                    let item = new PopupMenu.PopupMenuItem(device.name);
-                    item.connect("activate", () => this.castCurrentStreamTo(device.uuid, device.name));
-                    this._castMenuItem.menu.addMenuItem(item);
-                });
+                if (closed) return; //cancelled/closed before discovery resolved
+                dialog.showDevices(devices);
             });
         }
         castCurrentStreamTo(uuid, deviceName) {

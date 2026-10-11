@@ -83,6 +83,40 @@
 .settings-menu-item {
 }
 
+/* Chromecast device picker */
+.cast-picker-title {
+    font-weight: bold;
+    font-size: 1.1em;
+    padding-bottom: 12px;
+    text-align: center;
+}
+
+.cast-picker-list {
+    spacing: 4px;
+    min-width: 20em;
+}
+
+.cast-picker-status {
+    padding: 8px 4px;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.cast-picker-device-row {
+    padding: 10px 12px;
+    border-radius: 6px;
+    text-align: left;
+}
+
+.cast-picker-device-row:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.cast-picker-stop-row {
+    color: -st-accent-fg-color;
+    background-color: -st-accent-color;
+}
+
 .song-info-panel-tooltip {
     border-radius: 7px;
     padding: 4px 12px;

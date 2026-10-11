@@ -89,6 +89,7 @@ export const CSS_TYPE_BADGE = "channel-list-type-badge";
 export const ICON_RADIO_ON_PATH = "/images/radio-icon-on.svg";
 export const ICON_RADIO_OFF_PATH = "/images/radio-icon-off.svg";
 export const ICON_RADIO_ON_AIR_PATH = "/images/radio-live-symbolic.svg";
+export const ICON_CAST_PATH = "/images/cast-symbolic.svg";
 export const ICON_CHANNEL_THUMB_PLACEHOLDER = "audio-x-generic-symbolic";
 export const ICON_VOLUME_MUTED = "audio-volume-muted-symbolic";
 export const ICON_VOLUME_LOW = "audio-volume-low-symbolic";
