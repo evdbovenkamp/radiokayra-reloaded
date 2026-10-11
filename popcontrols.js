@@ -18,50 +18,36 @@ export const ControlsPopup = GObject.registerClass(
                 can_focus: true,
             });
             this._play_click_handler = null;
-            this._controlsLayout = new St.BoxLayout({                
+            this._controlsLayout = new St.BoxLayout({
+                style_class: "radiokayra-controls-box",
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
-                //width: Constants.DEFAULT_PANEL_WIDTH,                                
-            });  
+            });
             //Gnome 48 or below? //Alternative: this._controlsLayout.orientation === undefined
-            if (shellVersion < 48) this._controlsLayout.vertical = false;                                            
-            else this._controlsLayout.orientation = Clutter.Orientation.HORIZONTAL;                      
-                        
+            if (shellVersion < 48) this._controlsLayout.vertical = false;
+            else this._controlsLayout.orientation = Clutter.Orientation.HORIZONTAL;
+
             this.add_child(this._controlsLayout);
-            
-            this._previousbutton = new St.Icon({
-                icon_name: Constants.ICON_BACKWARD,
-                reactive: true,
-                icon_size: Constants.PLAY_PREV_ICON_SIZE,
-                x_align: Clutter.ActorAlign.START,
-                x_expand: false,
-            });
 
+            this._previousbutton = this._createIconButton(Constants.ICON_BACKWARD, Constants.PLAY_PREV_ICON_SIZE, Clutter.ActorAlign.START);
             this._controlsLayout.add_child(this._previousbutton);
-            
-            this._playbutton = new St.Icon({
-                icon_name: Constants.ICON_PLAY,
-                reactive: true,
-                icon_size: Constants.PLAY_ICON_SIZE,
-                x_align: Clutter.ActorAlign.CENTER,
-                x_expand: false,
-            });
 
+            this._playbutton = this._createIconButton(Constants.ICON_PLAY, Constants.PLAY_ICON_SIZE, Clutter.ActorAlign.CENTER);
             this._controlsLayout.add_child(this._playbutton);
 
-            this._nextbutton = new St.Icon({
-                icon_name: Constants.ICON_FORWARD,
-                reactive: true,
-                icon_size: Constants.PLAY_NEXT_ICON_SIZE,
-                x_align: Clutter.ActorAlign.END,
+            this._nextbutton = this._createIconButton(Constants.ICON_FORWARD, Constants.PLAY_NEXT_ICON_SIZE, Clutter.ActorAlign.END);
+            this._controlsLayout.add_child(this._nextbutton);
+        }
+        //St.Icon never gets :hover/:active theme states; St.Button does, so controls
+        //get the same circular hover highlight as e.g. the Quick Settings buttons.
+        _createIconButton(iconName, iconSize, xAlign) {
+            return new St.Button({
+                style_class: "icon-button",
+                child: new St.Icon({ icon_name: iconName, icon_size: iconSize }),
+                x_align: xAlign,
                 x_expand: false,
             });
-            
-            this._controlsLayout.add_child(this._nextbutton);
-
-            this.add_child(this._controlsLayout);
         }
-      
         clear() {
             if (this._play_click_handler !== null)
                 this.disconnect(this._play_click_handler);
@@ -72,22 +58,17 @@ export const ControlsPopup = GObject.registerClass(
             this._playbutton?.destroy();
             this._playbutton = null;
         }
-        statePlaying() { this._playbutton.set_icon_name(Constants.ICON_STOP); }
-        stateLoading() { this._playbutton.set_icon_name(Constants.ICON_STOP); }
-        stateReady() { this._playbutton.set_icon_name(Constants.ICON_PLAY); }
+        statePlaying() { this._playbutton.child.set_icon_name(Constants.ICON_STOP); }
+        stateLoading() { this._playbutton.child.set_icon_name(Constants.ICON_STOP); }
+        stateReady() { this._playbutton.child.set_icon_name(Constants.ICON_PLAY); }
         setOnPlayClicked(onPlayClicked) {
-            //Whole row is clickable
-            /*this._play_click_handler = this.connect("button-press-event", () => {
-                onPlayClicked();
-            });*/
-            //Uncomment to make only the button clickable
-            this._playbutton.connect("button-press-event", () => onPlayClicked());
+            this._playbutton.connect("clicked", () => onPlayClicked());
         }
-        setOnPlayNextClicked(onPlayNextClicked) {            
-            this._nextbutton.connect("button-press-event", () => onPlayNextClicked());
+        setOnPlayNextClicked(onPlayNextClicked) {
+            this._nextbutton.connect("clicked", () => onPlayNextClicked());
         }
-        setOnPlayPrevClicked(onPlayPrevClicked) {            
-            this._previousbutton.connect("button-press-event", () => onPlayPrevClicked());
+        setOnPlayPrevClicked(onPlayPrevClicked) {
+            this._previousbutton.connect("clicked", () => onPlayPrevClicked());
         }
     },
 );

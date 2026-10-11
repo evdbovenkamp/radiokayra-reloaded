@@ -44,7 +44,7 @@ export const StationsPageHandler = class StationsPageHandler {
     }
 
     populateChannels() {
-        this._channelsReadWrite = new Channels.ChannelsReadWrite(this.path);
+        this._channelsReadWrite = new Channels.ChannelsReadWrite(this._kayraPrefs.path);
         this._channels = this._channelsReadWrite.getChannels();
         this._channels.sort((a, b) => parseInt(a.order) - parseInt(b.order));
 
@@ -56,7 +56,8 @@ export const StationsPageHandler = class StationsPageHandler {
                 channelData.uri,
                 channelData.order,
                 channelData.useYtdlp,
-                false
+                false,
+                channelData
             );
             this.fillChannelRow(channelInfo);
         }
@@ -66,6 +67,22 @@ export const StationsPageHandler = class StationsPageHandler {
         this._rows.push(row);
         row.name = channelInfo.id;
         row.title = channelInfo.name;
+
+        let subtitleParts = [];
+        if (!Utils.isEmptyString(channelInfo.country)) subtitleParts.push(channelInfo.country);
+        if (!Utils.isEmptyString(channelInfo.codec)) subtitleParts.push(channelInfo.codec);
+        if (!Utils.isEmptyString(channelInfo.bitrate)) subtitleParts.push(`${channelInfo.bitrate}kb/s`);
+        if (subtitleParts.length > 0) row.subtitle = subtitleParts.join(" · ");
+
+        let thumbNailPath = Utils.getConfigPath() + "/" + channelInfo.id;
+        let thumbNailFile = Gio.file_new_for_path(thumbNailPath);
+        const thumbNail = new Gtk.Image({
+            valign: Gtk.Align.CENTER,
+            pixel_size: 32,
+        });
+        if (thumbNailFile.query_exists(null)) thumbNail.set_from_file(thumbNailPath);
+        else thumbNail.set_from_icon_name(Constants.ICON_CHANNEL_THUMB_PLACEHOLDER);
+        row.add_prefix(thumbNail);
 
         const deleteButton = new Gtk.Button({
             valign: Gtk.Align.CENTER,
@@ -213,94 +230,61 @@ export const StationsPageHandler = class StationsPageHandler {
         }
 
         let dialog = new Adw.Dialog();
-        //dialog.set_content_height(300);
-        //dialog.set_content_width(400);
         dialog.set_title(channelInfo === null ? _("Add a New Channel") : _("Edit Channel"));
+        dialog.set_content_width(480);
         dialog.set_presentation_mode(Adw.ADW_DIALOG_BOTTOM_SHEET);
         dialog.set_can_close(true);
 
-        let dlgContentBox = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 10,
-        });
-        let headerBar = new Adw.HeaderBar();
-        dlgContentBox.append(headerBar);
+        let toolbarView = new Adw.ToolbarView();
+        toolbarView.add_top_bar(new Adw.HeaderBar());
 
-        ////////////////////////////////////////
-        //First Row
-        let firstRowContent = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 5,
-        });
-        let linkLabel = new Gtk.Label({
-            label: _("Channel URL:"),
-            xalign: 0,
-        });
-        linkLabel.set_width_chars(15);
-        this.uriEntry = new Gtk.Entry({
-            buffer: new Gtk.EntryBuffer(),
-            hexpand: true,
-        });
+        let page = new Adw.PreferencesPage();
+        let group = new Adw.PreferencesGroup();
 
-        firstRowContent.append(linkLabel);
-        firstRowContent.append(this.uriEntry);
-
-        this.uriEntry.set_width_chars(35);
-        firstRowContent.set_margin_start(20);
-        firstRowContent.set_margin_end(20);
-        dlgContentBox.append(firstRowContent);
-        ////////////////////////////////////////
-
-        //Second Row
-        let secondRowContent = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 5,
+        this.uriEntry = new Adw.EntryRow({ title: _("Channel URL") });
+        this.loadingSpinner = new Gtk.Spinner({ valign: Gtk.Align.CENTER });
+        let getNameButton = new Gtk.Button({
+            valign: Gtk.Align.CENTER,
+            icon_name: "view-refresh-symbolic",
+            tooltip_text: _("Fetch name from URL"),
         });
-        let nameLabel = new Gtk.Label({
-            label: _("Channel Name:"),
-            xalign: 0,
-        });
-        nameLabel.set_width_chars(15);
-
-        this.nameEntry = new Gtk.Entry({
-            buffer: new Gtk.EntryBuffer(),
-            hexpand: true,
-        });
-
-        let getNameButton = new Gtk.Button({ label: _("Fetch from url") });
+        getNameButton.get_style_context().add_class("flat");
         getNameButton.connect("clicked", () => {
-            let newUri = this.uriEntry.get_buffer().text;
+            let newUri = this.uriEntry.get_text();
             if (!Utils.isEmptyString(newUri)) {
                 this.loadingSpinner.start();
                 YtdlpHandler.getFullChannelJson(id, newUri, this);
             }
         });
+        this.uriEntry.add_suffix(this.loadingSpinner);
+        this.uriEntry.add_suffix(getNameButton);
+        group.add(this.uriEntry);
 
-        secondRowContent.append(nameLabel);
-        secondRowContent.append(this.nameEntry);
-        secondRowContent.append(getNameButton);
-        secondRowContent.set_margin_start(20);
-        secondRowContent.set_margin_end(20);
-        dlgContentBox.append(secondRowContent);
-        ////////////////////////////////////////
+        this.nameEntry = new Adw.EntryRow({ title: _("Channel Name") });
+        group.add(this.nameEntry);
 
-        //Third Row
-        let thirdRowContent = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 5,
+        this.ytdlpCheck = new Adw.SwitchRow({
+            title: _("Use yt-dlp"),
+            subtitle: _("Enable for YouTube and other sites that need resolving. Disable for a direct audio stream link."),
         });
-        this.ytdlpCheck = new Gtk.CheckButton({ label: _("Use yt-dlp?") });
         this.ytdlpCheck.set_active(true);
+        group.add(this.ytdlpCheck);
+
+        page.add(group);
+
         let saveChannelButton = new Gtk.Button({
             label: channelInfo === null ? _("Add") : _("Update"),
             halign: Gtk.Align.END,
-            hexpand: false,
+            margin_top: 6,
+            margin_end: 20,
+            margin_bottom: 20,
         });
+        saveChannelButton.get_style_context().add_class("suggested-action");
         saveChannelButton.connect("clicked", () => {
             //Get Info from UI
-            let uri = this.uriEntry.get_buffer().text;
+            let uri = this.uriEntry.get_text();
             let useYtdlp = this.ytdlpCheck.get_active();
-            let name = this.nameEntry.get_buffer().text;
+            let name = this.nameEntry.get_text();
 
             //Encode special characters
             let encodedUri = Utils.processSpecialCharacters(uri, true);
@@ -324,24 +308,10 @@ export const StationsPageHandler = class StationsPageHandler {
             dialog.close();
         });
 
-        thirdRowContent.set_margin_start(20);
-        thirdRowContent.set_margin_end(20);
-        thirdRowContent.set_homogeneous(true);
-        thirdRowContent.append(this.ytdlpCheck);
-        thirdRowContent.append(saveChannelButton);
-        dlgContentBox.append(thirdRowContent);
-        ////////////////////////////////////////
-
-        //Fourth Row
-        this.fourthRowContent = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 5,
-        });
-        this.loadingSpinner = new Gtk.Spinner();
-        this.fourthRowContent.append(this.loadingSpinner);
-        this.fourthRowContent.set_homogeneous(true);
-        dlgContentBox.append(this.fourthRowContent);
-        ////////////////////////////////////////
+        let contentBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+        contentBox.append(page);
+        contentBox.append(saveChannelButton);
+        toolbarView.set_content(contentBox);
 
         if (channelInfo !== null) {
             this.ytdlpCheck.set_active(channelInfo.getUseYtdlp());
@@ -351,18 +321,17 @@ export const StationsPageHandler = class StationsPageHandler {
                 channelInfo.getUri(),
                 false,
             );
-            this.uriEntry.get_buffer().text = decodedUri;
+            this.uriEntry.set_text(decodedUri);
 
             //Load decoded name from file into UI
             let decodedName = Utils.processSpecialCharacters(
                 channelInfo.getName(),
                 false,
             );
-            this.nameEntry.get_buffer().text = decodedName;
+            this.nameEntry.set_text(decodedName);
         }
-        dlgContentBox.set_margin_top(10);
-        dlgContentBox.set_margin_bottom(30);
-        dialog.set_child(dlgContentBox);
+
+        dialog.set_child(toolbarView);
         dialog.present(this._window);
     }
     onFullChannelJsonReceived(id, channelData, error) {
@@ -373,7 +342,7 @@ export const StationsPageHandler = class StationsPageHandler {
         let title = "";
         if (channelData.playlist_count >= 1) title = channelData.title; //Ytdlp behaviour
         else title = channelData.fulltitle;
-        this.nameEntry.get_buffer().text = title;
+        this.nameEntry.set_text(title);
         this.loadingSpinner.stop();
     }
 
@@ -388,7 +357,8 @@ export const StationsPageHandler = class StationsPageHandler {
                     channelData.uri,
                     channelData.order,
                     channelData.useYtdlp,
-                    false
+                    false,
+                    channelData
                 );
                 break;
             }
@@ -410,7 +380,7 @@ export const StationsPageHandler = class StationsPageHandler {
         }
     }
 
-    addChannelInfo(newId, newName, newUri, newUseYtdlp) {
+    addChannelInfo(newId, newName, newUri, newUseYtdlp, extraMeta = {}) {
         let newOrder = this._channels.length + 1;
         const newChannel = {
             id: newId,
@@ -418,18 +388,20 @@ export const StationsPageHandler = class StationsPageHandler {
             order: newOrder,
             useYtdlp: newUseYtdlp,
             uri: newUri,
+            ...extraMeta,
         };
         this._channels.push(newChannel);
-        this.writeChannels();        
+        this.writeChannels();
         let channelInfo = new Channels.ChannelInfo(
             newId,
             newName,
             newUri,
             newOrder,
             newUseYtdlp,
-            false
+            false,
+            extraMeta
         );
-        this.fillChannelRow(channelInfo);        
+        this.fillChannelRow(channelInfo);
     }
     channelExists(encodedUri) {
         for (let index = 0; index < this._channels.length; ++index) {

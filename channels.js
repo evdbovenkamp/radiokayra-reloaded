@@ -3,19 +3,30 @@ import GLib from "gi://GLib";
 import * as Constants from "./constants.js";
 
 export const ChannelInfo = class ChannelInfo {
-  constructor(id, name, uri, order, useYtdlp, islive) {
+  constructor(id, name, uri, order, useYtdlp, islive, meta = {}) {
     this.id = id;
     this.name = name;
     this.uri = uri;
     this.order = order;
     this.useYtdlp = useYtdlp;
     this.islive = islive;
+    //Optional station metadata (populated when added via radio-browser.info search)
+    this.source = meta.source ?? null;
+    this.stationuuid = meta.stationuuid ?? null;
+    this.favicon = meta.favicon ?? null;
+    this.tags = meta.tags ?? null;
+    this.country = meta.country ?? null;
+    this.codec = meta.codec ?? null;
+    this.bitrate = meta.bitrate ?? null;
+    this.homepage = meta.homepage ?? null;
   }
   getId() { return this.id; }
   getName() { return this.name; }
   getOrder() { return this.order; }
   getUseYtdlp() { return this.useYtdlp; }
   getUri() { return this.uri; }
+  getStationUuid() { return this.stationuuid; }
+  getSource() { return this.source; }
   setName(name) { this.name = name; }
   setUri(uri) { this.uri = uri; }
   setuseYtdlp(useYtdlp) { this.useYtdlp = useYtdlp; }

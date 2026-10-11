@@ -18,15 +18,15 @@ export const RadioPlayer = class RadioPlayer {
     this.pipeline = new Gst.Pipeline({ name: "Radio Kayra Stream" });
     this.playing = false;
     this.initialized = true;
+    this.readTags();
   }
   changeChannel(uri) {
     if (!this.initialized) this.initPipeLine();
     if (this.source !== null) this.pipeline.remove(this.source);
-    this.source = Gst.ElementFactory.make("playbin3", "source");    
+    this.source = Gst.ElementFactory.make("playbin3", "source");
     this.source.set_property("uri", uri);
     this.source.set_property("volume", this.volume);
     this.pipeline.add(this.source);
-    this.readTags();
 
     this.source.set_property("flags", 0x00000080 | 0x00000010 | 0x00000002); //https://gstreamer.freedesktop.org/documentation/playback/playsink.html?gi-language=javascript#GstPlayFlags
   }
@@ -36,12 +36,13 @@ export const RadioPlayer = class RadioPlayer {
     this.playing = true;
   }
   stop() {
+    if (!this.initialized) return;
     this.pipeline.set_state(Gst.State.NULL);
     this.playing = false;
   }
   setVolume(newValue) {
     this.volume = Math.pow(newValue, Constants.VOLUME_POWER);
-    if (this.source) this.source.set_property("volume", newValue);
+    if (this.source) this.source.set_property("volume", this.volume);
   }
   readTags() {
     this.sourceBus = this.pipeline.get_bus();
@@ -84,7 +85,7 @@ export const RadioPlayer = class RadioPlayer {
           let title = "";
 
           if (tagList.get_string("artist") !== null) artist = tagList.get_string("artist")[1];
-          if (tagList.get_string("title") !== null) artist = tagList.get_string("title")[1];
+          if (tagList.get_string("title") !== null) title = tagList.get_string("title")[1];
           if (this.onTagChanged !== null) this.onTagChanged(artist, title);
           break;
         }

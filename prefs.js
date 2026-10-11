@@ -17,9 +17,14 @@ export default class RadioKayraPreferences extends ExtensionPreferences {
     console.info(`constructing ${this.metadata.name}`);    
   }
   fillPreferencesWindow(window) {
-    this._window = window;        
-    this._channelsChanged = false;        
-    
+    this._window = window;
+    this._channelsChanged = false;
+
+    //Remember the window size the user last resized it to.
+    let settings = this.getSettings();
+    settings.bind(Constants.SCHEMA_PREFS_WINDOW_WIDTH, window, "default-width", Gio.SettingsBindFlags.DEFAULT);
+    settings.bind(Constants.SCHEMA_PREFS_WINDOW_HEIGHT, window, "default-height", Gio.SettingsBindFlags.DEFAULT);
+
     //Stations
     this._stationsPageHandler = new StationsPageHandler.StationsPageHandler(this);
     this._stationsPageHandler.createPage();

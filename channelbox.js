@@ -2,6 +2,7 @@ import Gio from "gi://Gio";
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
+import Pango from "gi://Pango";
 import GdkPixbuf from "gi://GdkPixbuf";
 
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
@@ -31,16 +32,24 @@ export const ChannelBox = GObject.registerClass(
 
             this.addThumbnail();
             this._channelLabel = new St.Label({
+                style_class: Constants.CSS_CHANNEL_LIST_LABEL,
                 reactive: true,
                 x_align: Clutter.ActorAlign.START,
-                //x_expand: true,
+                x_expand: true,
             });
             this._channelLabel.text = Utils.processSpecialCharacters(
                 this._channelInfo.getName(),
                 false,
             );
-            this._channelLabel.clutter_text.set_max_length(40);
+            this._channelLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
             this.add_child(this._channelLabel);
+
+            this.setOrnament(PopupMenu.Ornament.NONE);
+        }
+        //Marks this row as the currently playing/selected channel with the same
+        //dot ornament GNOME's own menus use for a selected item.
+        setActive(isActive) {
+            this.setOrnament(isActive ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
         }
        
         clear() {
@@ -67,7 +76,7 @@ export const ChannelBox = GObject.registerClass(
         }
         addThumbnail() {
             this._thumbnail = new St.Icon({ style_class: Constants.CSS_CHANNEL_LIST_THUMBNAIL });
-            this._thumbnail.set_icon_size(20);
+            this._thumbnail.set_icon_size(Constants.CHANNEL_LIST_THUMB_SIZE);
 
             if (this.doesThumbnailExist()) {
                 try {

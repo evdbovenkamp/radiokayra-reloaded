@@ -55,7 +55,7 @@ export async function searchYoutube(searchString, clientObject) {
     clientObject.proc = Gio.Subprocess.new(
       [
         "yt-dlp",
-        "ytsearch100:" + "'" + searchString + "'",
+        "ytsearch100:" + searchString,
         "-O",
         "{\"channel\":\"%(channel)s\", \"url\":\"%(original_url)s\", \"title\":\"%(fulltitle)s\",\"thumbnail\":\"%(thumbnail)s\", \"is_live\":\"%(is_live)s\", \"duration\":\"%(duration_string)s\", \"like_count\":%(like_count)d}",
         "--skip-download"

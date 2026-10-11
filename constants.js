@@ -9,6 +9,8 @@ export const MAX_SONG_TITLE = 80;
 export const PLAY_ICON_SIZE = 60;
 export const PLAY_PREV_ICON_SIZE = 40;
 export const PLAY_NEXT_ICON_SIZE = 40;
+export const CHANNEL_LIST_THUMB_SIZE = 28;
+export const NOW_PLAYING_THUMB_SIZE = 128;
 
 export const MAX_YOUTUBE_SEARCH_RESULTS = 30;
 export const MAX_RADIO_SEARCH_RESULTS = 30;
@@ -16,6 +18,13 @@ export const MAX_RADIO_SEARCH_RESULTS = 30;
 export const SETTINGS_FILE_NAME = "channels.json";
 export const CONFIG_FOLDER_NAME = "radio-kayra";
 export const RADIO_SEARCH_SERVER_URL = 'all.api.radio-browser.info';
+export const RADIO_BROWSER_USER_AGENT = "RadioKayraReloaded/1.0 (+https://github.com/ayhanavci/radiokayra)";
+export const RADIO_BROWSER_ORDER_OPTIONS = ["votes", "clickcount", "name", "random"];
+export const RADIO_BROWSER_DEFAULT_ORDER = "votes";
+export const CHANNEL_SOURCE_RADIOBROWSER = "radiobrowser";
+export const CHANNEL_SOURCE_YOUTUBE = "youtube";
+export const CHANNEL_SOURCE_MANUAL = "manual";
+export const CHANNEL_SOURCE_PODCASTINDEX = "podcastindex"; //Reserved: podcast integration lands in a later phase.
 export const VOLUME_POWER = 2;
 
 export const SCHEMA_CHANNELS_CHANGE_EVENT = "channelschangedevent";
@@ -26,12 +35,17 @@ export const SCHEMA_SONG_TOOLTIP = "showsongtooltip";
 export const SCHEMA_RIGHTCLICK_SETTINGS = "rightclicksettings";
 export const SCHEMA_RIGHTCLICK_COPYSONG = "rightclickcopysong";
 export const SCHEMA_GNOME_SEARCH = "gnomesearch";
+export const SCHEMA_PREFS_WINDOW_WIDTH = "prefswindowwidth";
+export const SCHEMA_PREFS_WINDOW_HEIGHT = "prefswindowheight";
 
 export const CSS_SETTINGS_POPUP = "settings-menu-item";
 export const CSS_CHANNEL_LIST_THUMBNAIL = "channel-list-item";
-export const CSS_LOADING_LAYOUT = "radiokayra-popup-loading-box";
-export const CSS_ICON_PLAY_BUTTON = "play-button-icon";
-export const CSS_CHANNEL_NAME_LABEL = "channel-name-label";
+export const CSS_CHANNEL_LIST_LABEL = "channel-list-label";
+export const CSS_SONG_INFO_CHANNEL_NAME = "song-info-channel-name";
+export const CSS_SONG_INFO_ARTIST = "song-info-artist";
+export const CSS_SONG_INFO_TITLE = "song-info-title";
+export const CSS_SONG_INFO_DURATION = "song-info-duration";
+export const CSS_LIVE_ICON = "song-info-live-icon";
 
 export const ICON_RADIO_ON_PATH = "/images/radio-icon-on.svg";
 export const ICON_RADIO_OFF_PATH = "/images/radio-icon-off.svg";
@@ -48,14 +62,16 @@ export const ICON_STOP = "media-playback-stop-symbolic";
 export const ICON_ADD_CHANNEL = "list-add-symbolic";
 export const ICON_MOVE_DOWN = "go-down-symbolic";
 export const ICON_MOVE_UP = "go-up-symbolic";
-export const ICON_RADIO_SEARCH_PAGE = "system-search-symbolic";
-export const ICON_YOUTUBE_SEARCH_PAGE = "system-search-symbolic";
+export const ICON_RADIO_SEARCH_PAGE = "radio-symbolic";
+export const ICON_YOUTUBE_SEARCH_PAGE = "multimedia-video-player-symbolic";
 export const ICON_BUTTON_SEARCH_ADD = "list-add-symbolic";
 export const ICON_SETTINGS = "emblem-system-symbolic";
-export const ICON_STATIONS_PAGE = "open-menu-symbolic";
+export const ICON_STATIONS_PAGE = "playlist-symbolic";
 export const ICON_DELETE_CHANNEL = "user-trash-symbolic";
 export const ICON_EDIT_CHANNEL = "document-edit-symbolic";
 export const ICON_ABOUT = "help-about-symbolic";
+
+export const LOG_PREFIX_UTILS = "Utils";
 
 export const LOG_PREFIX_CHANNELS = "Channels";
 export const LOG_FAILED_TO_LOAD_JSON = "Failed to load channels.json.";

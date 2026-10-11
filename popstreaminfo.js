@@ -57,13 +57,11 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Channel Name
             this._channelNameLabel = new St.Label({
-                style_class: Constants.CSS_CHANNEL_NAME_LABEL,
-                //y_align: Clutter.ActorAlign.CENTER,
+                style_class: Constants.CSS_SONG_INFO_CHANNEL_NAME,
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 reactive: true,
             });
-            //this._artistLabel.clutter_text.set_max_length(90);
             this._channelNameLabel.clutter_text.line_wrap = true;
             this._channelNameLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD;
             this._channelNameLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
@@ -72,8 +70,7 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Stream Thumbnail
             this._thumbnail = new St.Icon({
-                icon_size: 100,
-                //style: "width: 200px; height: 100px",
+                icon_size: Constants.NOW_PLAYING_THUMB_SIZE,
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
             });
@@ -83,7 +80,7 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Song duration
             this._durationLabel = new St.Label({
-                style_class: Constants.CSS_CHANNEL_NAME_LABEL,
+                style_class: Constants.CSS_SONG_INFO_DURATION,
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 reactive: true,
@@ -93,12 +90,11 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Artist Info
             this._artistLabel = new St.Label({
-                style_class: Constants.CSS_CHANNEL_NAME_LABEL,
+                style_class: Constants.CSS_SONG_INFO_ARTIST,
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 reactive: true,
             });
-            //this._artistLabel.clutter_text.set_max_length(90);
             this._artistLabel.clutter_text.line_wrap = true;
             this._artistLabel.clutter_text.line_wrap_mode = Pango.WrapMode.WORD;
             this._artistLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
@@ -106,6 +102,7 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Song title Info
             this._songLabel = new St.Label({
+                style_class: Constants.CSS_SONG_INFO_TITLE,
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 reactive: true,
@@ -114,8 +111,8 @@ export const StreamInfoPopup = GObject.registerClass(
 
             //Stream live icon
             this._onair = new St.Icon({
+                style_class: Constants.CSS_LIVE_ICON,
                 icon_size: 15,
-                //style: "width: 200px; height: 100px",
                 x_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
             });

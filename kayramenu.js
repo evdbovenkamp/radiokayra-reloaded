@@ -31,33 +31,30 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._player.stop();
             this._player.disconnectSourceBus();
 
-            this._settings.disconnect(this._settings_settings_changed_handler);
+            this._settings.disconnect(this._settings_changed_handler);
+            this._settings.disconnect(this._height_changed_handler);
+            this._settings.disconnect(this._search_event_handler);
             this._settingsMenuItem.disconnect(this._settings_menu_activate_handler);
             this.disconnect(this._icon_mouse_click_handler);
 
             this.setTrayIconStopped();
-            this._controlsPopup.clear();            
-            this._volumeControlPopup.clear();
-            this._streamInfoPopup.clear();
-            this._settingsMenuItem?.destroy();
 
-            this._controlsPopup = null;            
+            //Don't manually destroy controlsPopup/volumeControlPopup/streamInfoPopup/
+            //settingsMenuItem/channelSection/scrollViewMenuSection/channelScrollView here:
+            //they're all children of this.menu, and GNOME Shell's PanelMenu.Button
+            //already destroys this.menu (and everything in it, recursively) when
+            //super.destroy() below triggers the actor's 'destroy' signal. Destroying
+            //them a second time here just produces "already disposed" warnings.
+            this._controlsPopup = null;
             this._volumeControlPopup = null;
             this._streamInfoPopup = null;
             this._settingsMenuItem = null;
-
-            this._trayIcon?.destroy();
-            this._trayIcon = null;
-
-            this._channelSection?.destroy();
             this._channelSection = null;
-
-            this._scrollViewMenuSection?.destroy();
             this._scrollViewMenuSection = null;
-
-            this._channelScrollView?.destroy();
             this._channelScrollView = null;
 
+            //The tooltip is parented onto Main.layoutManager's chrome layer, not onto
+            //this actor or its menu, so nothing else will clean it up for us.
             this._tooltip?.destroy();
             this._tooltip = null;
 
@@ -65,7 +62,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
                 Main.overview.searchController.removeProvider(this._provider);
                 this._provider = null;
             }
-                        
+
             super.destroy();
         }
         setTrayIconStopped() {
@@ -248,7 +245,8 @@ export const RadiokayraMenuButton = GObject.registerClass(
                     channelData.uri,
                     channelData.order,
                     channelData.useYtdlp,
-                    false
+                    false,
+                    channelData
                 );
                 let channelBox = new ChannelBox.ChannelBox(channelInfo, this);
                 this.channelBoxList.push(channelBox);
@@ -256,6 +254,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
                 if (!Utils.isEmptyString(lastPlayedId) &&
                     lastPlayedId === channelInfo.getId()) {
                     radiokayraPanel._activeChannel = channelBox;
+                    channelBox.setActive(true);
                     this._streamInfoPopup.setChannelName(channelInfo.getName());
                     this._streamInfoPopup.showThumbnail(channelBox);
                 }
@@ -283,6 +282,10 @@ export const RadiokayraMenuButton = GObject.registerClass(
             radiokayraPanel._controlsPopup.statePlaying();
             radiokayraPanel._streamInfoPopup.statePlaying(radiokayraPanel._activeChannel);
             radiokayraPanel._player.setVolume(radiokayraPanel._volumeControlPopup.getVolume());
+
+            let playingChannelInfo = radiokayraPanel._activeChannel._channelInfo;
+            if (playingChannelInfo.getSource() === Constants.CHANNEL_SOURCE_RADIOBROWSER)
+                Utils.registerRadioBrowserClick(playingChannelInfo.getStationUuid());
             console.info("STREAM STARTED");
         }
         onPlayerStreamEnded() {
@@ -296,8 +299,12 @@ export const RadiokayraMenuButton = GObject.registerClass(
         }
         onChannelChanged(channel) {
             if (radiokayraPanel._activeChannel === null) console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[] -> [${channel._channelInfo.getId()}]`);
-            else console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[${radiokayraPanel._activeChannel._channelInfo.getId()}] -> [${channel._channelInfo.getId()}]`);
+            else {
+                console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[${radiokayraPanel._activeChannel._channelInfo.getId()}] -> [${channel._channelInfo.getId()}]`);
+                radiokayraPanel._activeChannel.setActive(false);
+            }
             radiokayraPanel._activeChannel = channel;
+            radiokayraPanel._activeChannel.setActive(true);
             radiokayraPanel._lastClickedChannelId = radiokayraPanel._activeChannel._channelInfo.getId();
 
             if (radiokayraPanel._player.isPlaying()) this._player.stop();
