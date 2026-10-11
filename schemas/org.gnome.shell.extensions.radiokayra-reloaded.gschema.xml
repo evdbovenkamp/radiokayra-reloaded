@@ -86,5 +86,12 @@
         <summary>Local channels.json mtime at last sync</summary>
         <description>Used internally to detect whether the local station list changed since we last looked.</description>
     </key>
+    <key name="enrichtrackdata" type="b">
+        <default>true</default>
+        <summary>Enrich track data via MusicBrainz</summary>
+        <description>
+            If true, looks up cover art for the current radio track via MusicBrainz and the Cover Art Archive.
+        </description>
+    </key>
   </schema>
 </schemalist>

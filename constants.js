@@ -33,6 +33,11 @@ export const CHANNEL_SOURCE_PODCASTINDEX = "podcastindex";
 export const VOLUME_POWER = 2;
 
 export const PODCASTINDEX_API_BASE = "https://api.podcastindex.org/api/1.0";
+
+export const MUSICBRAINZ_USER_AGENT = "RadioKayraReloaded/1.0 (+https://github.com/ayhanavci/radiokayra)";
+export const MUSICBRAINZ_MIN_INTERVAL_MS = 1100; //MusicBrainz asks for ~1 req/sec per client
+export const MUSICBRAINZ_MIN_SCORE = 85; //minimum match confidence before trusting a search result
+export const COVERART_CACHE_MAX_ENTRIES = 200;
 export const PODCASTINDEX_USER_AGENT = "RadioKayraReloaded/1.0";
 export const PODCASTINDEX_SIGNUP_URL = "https://api.podcastindex.org/signup";
 export const PODCASTINDEX_SECRET_SCHEMA_ID = "org.gnome.shell.extensions.radiokayra-reloaded";
@@ -56,6 +61,7 @@ export const SCHEMA_SYNC_FOLDER = "syncfolder";
 export const SCHEMA_SYNC_LAST_AT = "synclastat";
 export const SCHEMA_SYNC_LAST_REMOTE_MTIME = "synclastremotemtime";
 export const SCHEMA_SYNC_LAST_LOCAL_MTIME = "synclastlocalmtime";
+export const SCHEMA_ENRICH_TRACK_DATA = "enrichtrackdata";
 
 export const SYNC_BUNDLE_FILENAME = "radio-kayra-sync.json";
 export const SYNC_BUNDLE_SCHEMA_VERSION = 1;

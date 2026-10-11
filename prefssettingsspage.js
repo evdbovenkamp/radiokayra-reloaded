@@ -49,6 +49,15 @@ export const SettingsPageHandler = class SettingsPageHandler {
         this._settingsGroup.add(this._show_track_notification);
         //TRACK NOTIFICATION
 
+        //ENRICH TRACK DATA
+        this._enrich_track_data = new Adw.SwitchRow({
+            title: _("Enrich track data"),
+            subtitle: _("Looks up cover art for the current radio track via MusicBrainz and the Cover Art Archive.")
+        });
+        this._schema.bind(Constants.SCHEMA_ENRICH_TRACK_DATA, this._enrich_track_data, 'active', Gio.SettingsBindFlags.DEFAULT);
+        this._settingsGroup.add(this._enrich_track_data);
+        //ENRICH TRACK DATA
+
         //RIGHT CLICK SETTINGS
         this._right_click_settings = new Adw.SwitchRow({
             title: _("Right click - Settings"),

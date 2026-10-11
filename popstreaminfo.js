@@ -147,13 +147,14 @@ export const StreamInfoPopup = GObject.registerClass(
             this._loadingSpinner = null;
         }
         statePlaying(channelBox) {
+            this._activeChannelBox = channelBox;
             this._onair.show();
             this._thumbnail.show();
             this._channelNameLabel.show();
             this._songLabel.show();
             this._loadingSpinner.stop();
-            this._loadingSpinner.hide();            
-            this._loadtxt.hide();            
+            this._loadingSpinner.hide();
+            this._loadtxt.hide();
             this.showThumbnail(channelBox);
             this.setChannelName(channelBox._channelInfo.getName());
             this.show();
@@ -248,6 +249,19 @@ export const StreamInfoPopup = GObject.registerClass(
             this._thumbnail.set_icon_name(Constants.ICON_CHANNEL_THUMB_PLACEHOLDER);
             this._thumbnail.set_scale(1, 1);
             this._thumbnail.set_pivot_point(1, 1);
+        }
+        //Swaps the station thumbnail for MusicBrainz/Cover Art Archive cover
+        //art of the currently playing track, when enrichment finds one.
+        showCoverArt(bytes) {
+            this._thumbnail.gicon = Gio.BytesIcon.new(bytes);
+            this._thumbnail.set_scale(1, 1);
+            this._thumbnail.set_pivot_point(0.5, 0.5);
+            this._thumbnail.show();
+        }
+        //Reverts to the station's own thumbnail — no cover art found/enabled,
+        //or the track changed again before a lookup resolved.
+        clearCoverArt() {
+            if (this._activeChannelBox) this.showThumbnail(this._activeChannelBox);
         }
         showOnAir() {
             let onAirPath = this._extensionPath + Constants.ICON_RADIO_ON_AIR_PATH;

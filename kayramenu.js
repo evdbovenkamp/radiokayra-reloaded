@@ -18,9 +18,11 @@ import * as PopSeekControls from "./popseekcontrols.js";
 import * as Channels from "./channels.js";
 import * as Constants from "./constants.js";
 import * as Positions from "./positions.js";
+import * as MusicBrainz from "./musicbrainz.js";
 import * as KayraSearchProvider from "./searchProvider.js";
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
 let radiokayraPanel;
 
@@ -87,6 +89,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
         destroy() {
             if (this._player.isPlaying()) this.saveCurrentPositionNow();
             this.stopPositionPoll();
+            MusicBrainz.reset();
             this._player.stop();
             this._player.disconnectSourceBus();
 
@@ -460,17 +463,51 @@ export const RadiokayraMenuButton = GObject.registerClass(
 
             radiokayraPanel._streamInfoPopup.onNewTag(artist, title);
             radiokayraPanel.updateToolTip();
-            radiokayraPanel.notifyNewTrack(artist, title);
+            radiokayraPanel.lookupCoverArt(artist, title, key);
+        }
+        //Cover art enrichment, default on (SCHEMA_ENRICH_TRACK_DATA), radio
+        //stations only — podcasts already carry their own artwork. Reads the
+        //toggle live so Settings takes effect without a logout. The track
+        //notification (if enabled) waits for this to resolve so it can carry
+        //the cover art too, rather than firing immediately without it.
+        lookupCoverArt(artist, title, requestKey) {
+            radiokayraPanel._streamInfoPopup.clearCoverArt();
+            let source = radiokayraPanel._activeChannel?._channelInfo?.source;
+            let canEnrich = source !== Constants.CHANNEL_SOURCE_PODCASTINDEX
+                && radiokayraPanel._settings.get_boolean(Constants.SCHEMA_ENRICH_TRACK_DATA);
+            if (!canEnrich) { radiokayraPanel.notifyNewTrack(artist, title, null); return; }
+
+            MusicBrainz.lookupCoverArt(artist, title, (bytes) => {
+                //The track (or the channel) may have moved on while this lookup
+                //was queued/in flight — never paint stale art, or notify about
+                //a track that already passed.
+                if (radiokayraPanel._lastTagKey !== requestKey) return;
+                if (bytes) radiokayraPanel._streamInfoPopup.showCoverArt(bytes);
+                radiokayraPanel.notifyNewTrack(artist, title, bytes);
+            });
         }
         //Desktop notification, if enabled — onPlayerTagChanged above already
-        //guarantees this only runs once per genuinely new tag.
-        notifyNewTrack(artist, title) {
+        //guarantees this only runs once per genuinely new tag. coverBytes is
+        //the enriched cover art (or null/undefined), shown as the
+        //notification's icon when available.
+        notifyNewTrack(artist, title, coverBytes = null) {
             if (!radiokayraPanel._settings.get_boolean(Constants.SCHEMA_SONG_NOTIFICATION)) return;
             if (Utils.isEmptyString(artist) && Utils.isEmptyString(title)) return;
 
             let channelName = radiokayraPanel._activeChannel?._channelInfo?.getName() ?? "";
             let body = [artist, title].filter(part => !Utils.isEmptyString(part)).join(" – ");
-            Main.notify(channelName, body);
+
+            if (!coverBytes) { Main.notify(channelName, body); return; }
+
+            let source = MessageTray.getSystemSource();
+            let notification = new MessageTray.Notification({
+                source,
+                title: channelName,
+                body,
+                gicon: Gio.BytesIcon.new(coverBytes),
+                isTransient: true,
+            });
+            source.addNotification(notification);
         }
         onChannelChanged(channel) {
             if (radiokayraPanel._activeChannel === null) console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[] -> [${channel._channelInfo.getId()}]`);
@@ -629,6 +666,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
         }
         stateLoadingChannel() {
             radiokayraPanel._streamInfoPopup.stateLoading();
+            radiokayraPanel._streamInfoPopup.clearCoverArt();
             radiokayraPanel._controlsPopup.stateLoading();
             radiokayraPanel._lastTagKey = null;
             console.info("Playing Link:[" + radiokayraPanel._activeChannel._channelInfo.getUri() + "]");
