@@ -19,8 +19,29 @@ import * as Constants from "./constants.js";
 //the whole file — each key independently keeps whichever side's updatedAt
 //is newer. Same "newest wins, no merge-UI" trade-off as sync.js, just
 //scoped to one scalar per channel instead of a whole list.
+//
+//Every read-modify-write against a given file is serialized through
+//runQueued() below. Without this, rapid channel switching fired overlapping
+//async read+write cycles against the same file — on a plain local disk
+//that's just a lost-update risk, but the sync-folder copy typically lives
+//inside a cloud-sync client's watched/FUSE-backed folder (Nextcloud,
+//Dropbox), and racing writes there can wedge its file-locking badly enough
+//to affect the whole desktop. One queue per file path means every operation
+//against it runs strictly one at a time, however fast the UI fires them.
 
 const FILENAME = "positions.json";
+const queues = new Map(); //file URI -> Promise chain
+
+function runQueued(file, operation) {
+    const key = file.get_uri();
+    const previous = queues.get(key) ?? Promise.resolve();
+    const next = previous.then(() => new Promise((resolve) => {
+        try { operation(resolve); }
+        catch (e) { console.warn(`${Constants.LOG_PREFIX_EXTENSION} positions.js operation failed: [${e}]`); resolve(); }
+    })).catch(() => { });
+    queues.set(key, next);
+    return next;
+}
 
 function getLocalFile() {
     return Gio.File.new_for_path(`${Utils.getConfigPath()}/${FILENAME}`);
@@ -46,6 +67,16 @@ function writeFile(file, data, callback) {
         callback?.();
     });
 }
+//Read-modify-write a single file as one queued, uninterruptible step.
+function updateFile(file, mutate) {
+    return runQueued(file, (done) => {
+        readFile(file, (data) => {
+            mutate(data);
+            writeFile(file, data, done);
+        });
+    });
+}
+
 //Combines two {channelId: {guid, position, updatedAt}} maps, keeping
 //whichever side's entry is newer for each key independently.
 function mergeNewest(a, b) {
@@ -69,31 +100,15 @@ export function getPosition(channelId, syncFolder, callback) {
 export function savePosition(channelId, guid, positionSeconds, syncFolder) {
     const entry = { guid, position: positionSeconds, updatedAt: new Date().toISOString() };
 
-    const localFile = getLocalFile();
-    readFile(localFile, (local) => {
-        local[channelId] = entry;
-        writeFile(localFile, local);
-    });
+    updateFile(getLocalFile(), (local) => { local[channelId] = entry; });
 
     const syncFile = getSyncFile(syncFolder);
-    if (!syncFile) return;
-    readFile(syncFile, (sync) => {
-        sync[channelId] = entry;
-        writeFile(syncFile, sync);
-    });
+    if (syncFile) updateFile(syncFile, (sync) => { sync[channelId] = entry; });
 }
 
 export function clearPosition(channelId, syncFolder) {
-    const localFile = getLocalFile();
-    readFile(localFile, (local) => {
-        delete local[channelId];
-        writeFile(localFile, local);
-    });
+    updateFile(getLocalFile(), (local) => { delete local[channelId]; });
 
     const syncFile = getSyncFile(syncFolder);
-    if (!syncFile) return;
-    readFile(syncFile, (sync) => {
-        delete sync[channelId];
-        writeFile(syncFile, sync);
-    });
+    if (syncFile) updateFile(syncFile, (sync) => { delete sync[channelId]; });
 }

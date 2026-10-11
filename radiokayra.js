@@ -18,7 +18,14 @@ export const RadioPlayer = class RadioPlayer {
   }
   changeChannel(uri) {
     if (!this.initialized) this.initPipeLine();
-    if (this.source !== null) this.pipeline.remove(this.source);
+    if (this.source !== null) {
+      //Force the old source (and whatever network connection/threads it
+      //opened) to fully release before dropping it — removing a playbin3
+      //from its bin while still PLAYING/PAUSED can leave those behind,
+      //which adds up fast across repeated quick channel switches.
+      this.source.set_state(Gst.State.NULL);
+      this.pipeline.remove(this.source);
+    }
     this.source = Gst.ElementFactory.make("playbin3", "source");
     this.source.set_property("uri", uri);
     this.source.set_property("volume", this.volume);
@@ -110,8 +117,7 @@ export const RadioPlayer = class RadioPlayer {
         if (Gstpbutils.is_missing_plugin_message(message)) {
           let pluginDescription = Gstpbutils.missing_plugin_message_get_description(message);
           this.stop();
-          if (this.onError !== null)
-            this.onError(1, "Gstreamer plugin missing for " + pluginDescription);
+          this.onError?.(1, "Gstreamer plugin missing for " + pluginDescription);
           console.warn(`${Constants.LOG_PREFIX_RADIO_PLAYER} ${Constants.LOG_GST_PLUGIN_ERROR}: [${pluginDescription}]`);
         }
         break;
@@ -123,12 +129,12 @@ export const RadioPlayer = class RadioPlayer {
 
           if (tagList.get_string("artist") !== null) artist = tagList.get_string("artist")[1];
           if (tagList.get_string("title") !== null) title = tagList.get_string("title")[1];
-          if (this.onTagChanged !== null) this.onTagChanged(artist, title);
+          this.onTagChanged?.(artist, title);
           break;
         }
       case Gst.MessageType.STREAM_START:
         //console.log(`${Constants.LOG_PREFIX_RADIO_PLAYER} ${Constants.LOG_GST_STREAM_STARTED}`);                         
-        if (this.onStreamStarted !== null) this.onStreamStarted();
+        this.onStreamStarted?.();
         break;
       case Gst.MessageType.NEED_CONTEXT: //536870912
         break;
@@ -140,14 +146,14 @@ export const RadioPlayer = class RadioPlayer {
         break;
       case Gst.MessageType.EOS:
         //console.log(`${Constants.LOG_PREFIX_RADIO_PLAYER} ${Constants.LOG_GST_STREAM_ENDED}`);  
-        if (this.onStreamEnded !== null) this.onStreamEnded();
+        this.onStreamEnded?.();
         break;
       case Gst.MessageType.ERROR:
         {
           let error, debug_msg = message.parse_error();
           console.warn(`${Constants.LOG_PREFIX_RADIO_PLAYER} ${Constants.LOG_ERROR_GST_MESSAGE}: [${error}] [${debug_msg}]`);
           this.stop();
-          if (this.onError !== null) this.onError(2, error + " " + debug_msg);
+          this.onError?.(2, error + " " + debug_msg);
           break;
         }
       default:
