@@ -115,7 +115,6 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._volumeControlPopup = null;
             this._streamInfoPopup = null;
             this._seekControlsPopup = null;
-            this._castMenuItem = null;
             this._settingsMenuItem = null;
             this._channelSection = null;
             this._scrollViewMenuSection = null;
@@ -203,7 +202,8 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this.initRadioCallbacks();
 
             //Controls Section
-            this._controlsPopup = new PopControls.ControlsPopup(this._shellVersion);
+            this._controlsPopup = new PopControls.ControlsPopup(this._shellVersion, this._path);
+            this._controlsPopup.setOnCastClicked(() => this.openCastPicker());
             this.menu.addMenuItem(this._controlsPopup);
             //console.error(`MY WIDTH IS ${this.get_style()}`);
             //Controls Section END            
@@ -229,22 +229,15 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             //Seek Controls Section END
 
-            //Cast Section — optional, requires python3-pychromecast. Hidden
-            //entirely when the Settings toggle is off or the dependency isn't
-            //installed (see Settings for install instructions); the base
-            //radio/podcast experience never depends on this. Opens a
-            //dedicated device-picker dialog rather than a nested submenu —
-            //bigger, clearer, and doesn't depend on in-menu submenu toggling.
-            this._castMenuItem = new PopupMenu.PopupImageMenuItem(_("Cast to…"), Gio.icon_new_for_string(this._path + Constants.ICON_CAST_PATH));
-            this._castMenuItem.visible = false;
-            this._castMenuItem.connect("activate", () => this.openCastPicker());
-            this.menu.addMenuItem(this._castMenuItem);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            //Cast — optional, requires python3-pychromecast. The icon next to
+            //the transport controls is hidden entirely when the Settings
+            //toggle is off or the dependency isn't installed (see Settings
+            //for install instructions); the base radio/podcast experience
+            //never depends on this.
             this.updateCastMenuVisibility();
             this._chromecast_enabled_changed_handler = this._settings.connect("changed::" + Constants.SCHEMA_CHROMECAST_ENABLED, () => {
                 this.updateCastMenuVisibility();
             });
-            //Cast Section END
 
             this._tooltip.text = "";
 
@@ -266,7 +259,6 @@ export const RadiokayraMenuButton = GObject.registerClass(
             );
             this._settings_menu_activate_handler = this._settingsMenuItem.connect("activate", () => { radiokayraPanel.openPreferences(); });
             this.menu.addMenuItem(this._settingsMenuItem);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             //Channels Edit Section END
             
             //Channels Section
@@ -677,10 +669,10 @@ export const RadiokayraMenuButton = GObject.registerClass(
         //nothing is relayed through this machine.
         updateCastMenuVisibility() {
             if (!this._settings.get_boolean(Constants.SCHEMA_CHROMECAST_ENABLED)) {
-                this._castMenuItem.visible = false;
+                this._controlsPopup.setCastVisible(false);
                 return;
             }
-            Chromecast.isAvailable((available) => { this._castMenuItem.visible = available; });
+            Chromecast.isAvailable((available) => { this._controlsPopup.setCastVisible(available); });
         }
         openCastPicker() {
             let dialog = new PopCastPicker.CastPickerDialog(

@@ -15,6 +15,7 @@ export const SEEK_BACK_SECONDS = 15;
 export const SEEK_FORWARD_SECONDS = 30;
 export const SEEK_ICON_SIZE = 20;
 export const EPISODE_NAV_ICON_SIZE = 16;
+export const CAST_ICON_SIZE = 20;
 export const POSITION_POLL_INTERVAL_SECONDS = 1;
 export const POSITION_SAVE_INTERVAL_SECONDS = 30;
 export const RESUME_EDGE_MARGIN_SECONDS = 10; //don't resume into the very start/end of an episode

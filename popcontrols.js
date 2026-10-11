@@ -1,17 +1,17 @@
+import Gio from "gi://Gio";
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
 
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import * as Constants from "./constants.js";
-import { gettext as _, } from "resource:///org/gnome/shell/extensions/extension.js";
 
 export const ControlsPopup = GObject.registerClass(
     {
         GTypeName: "ControlsPopup",
     },
     class extends PopupMenu.PopupBaseMenuItem {
-        constructor(shellVersion) {
+        constructor(shellVersion, extensionPath) {
             super({
                 hover: false,
                 activate: false,
@@ -37,6 +37,21 @@ export const ControlsPopup = GObject.registerClass(
 
             this._nextbutton = this._createIconButton(Constants.ICON_FORWARD, Constants.PLAY_NEXT_ICON_SIZE, Clutter.ActorAlign.END);
             this._controlsLayout.add_child(this._nextbutton);
+
+            //Optional extra, next to the transport controls rather than its
+            //own full menu row — hidden until updateCastMenuVisibility()
+            //(kayramenu.js) confirms it's actually usable.
+            this._castbutton = new St.Button({
+                style_class: "icon-button",
+                child: new St.Icon({
+                    gicon: Gio.icon_new_for_string(extensionPath + Constants.ICON_CAST_PATH),
+                    icon_size: Constants.CAST_ICON_SIZE,
+                }),
+                x_align: Clutter.ActorAlign.END,
+                x_expand: false,
+                visible: false,
+            });
+            this._controlsLayout.add_child(this._castbutton);
         }
         //St.Icon never gets :hover/:active theme states; St.Button does, so controls
         //get the same circular hover highlight as e.g. the Quick Settings buttons.
@@ -57,6 +72,9 @@ export const ControlsPopup = GObject.registerClass(
 
             this._playbutton?.destroy();
             this._playbutton = null;
+
+            this._castbutton?.destroy();
+            this._castbutton = null;
         }
         statePlaying() { this._playbutton.child.set_icon_name(Constants.ICON_STOP); }
         stateLoading() { this._playbutton.child.set_icon_name(Constants.ICON_STOP); }
@@ -69,6 +87,12 @@ export const ControlsPopup = GObject.registerClass(
         }
         setOnPlayPrevClicked(onPlayPrevClicked) {
             this._previousbutton.connect("clicked", () => onPlayPrevClicked());
+        }
+        setOnCastClicked(onCastClicked) {
+            this._castbutton.connect("clicked", () => onCastClicked());
+        }
+        setCastVisible(visible) {
+            this._castbutton.visible = visible;
         }
     },
 );
