@@ -93,5 +93,12 @@
             If true, looks up cover art for the current radio track via MusicBrainz and the Cover Art Archive.
         </description>
     </key>
+    <key name="chromecastenabled" type="b">
+        <default>true</default>
+        <summary>Enable casting to Chromecast/Google TV devices</summary>
+        <description>
+            If true, shows a "Cast to..." option to stream the current radio station or podcast episode to a Chromecast or Google TV device. Requires python3-pychromecast to be installed.
+        </description>
+    </key>
   </schema>
 </schemalist>

@@ -6,6 +6,7 @@ import * as Constants from "./constants.js";
 import * as PodcastIndex from "./podcastindex.js";
 import * as Utils from "./utils.js";
 import * as Sync from "./sync.js";
+import * as Chromecast from "./chromecast.js";
 
 import { ExtensionPreferences, gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
@@ -102,6 +103,7 @@ export const SettingsPageHandler = class SettingsPageHandler {
 
         this.createSyncGroup();
         this.createPodcastIndexGroup();
+        this.createChromecastGroup();
       }
       createSyncGroup() {
         this._syncManager = this._kayraPrefs._syncManager;
@@ -208,5 +210,37 @@ export const SettingsPageHandler = class SettingsPageHandler {
                 : _("Not configured yet");
         });
       }
- 
+      //Casting is an optional extra on top of the base radio/podcast
+      //experience, which always works regardless of this. It needs
+      //python3-pychromecast installed; the switch below only controls
+      //whether the panel *offers* casting — it doesn't control whether the
+      //dependency is present, so the status row always reflects the real,
+      //checked state and spells out the install step when it's missing.
+      createChromecastGroup() {
+        this._chromecastGroup = new Adw.PreferencesGroup({
+            title: _("Chromecast"),
+            description: _("Cast the current radio station or podcast episode to a Chromecast or Google TV device."),
+        });
+
+        this._chromecastEnabledRow = new Adw.SwitchRow({
+            title: _("Enable casting"),
+            subtitle: _("Shows a \"Cast to…\" option in the panel menu."),
+        });
+        this._schema.bind(Constants.SCHEMA_CHROMECAST_ENABLED, this._chromecastEnabledRow, "active", Gio.SettingsBindFlags.DEFAULT);
+        this._chromecastGroup.add(this._chromecastEnabledRow);
+
+        this._chromecastStatusRow = new Adw.ActionRow({ title: _("Status"), subtitle: _("Checking…") });
+        this._chromecastGroup.add(this._chromecastStatusRow);
+
+        this._settingsPage.add(this._chromecastGroup);
+        this.refreshChromecastStatus();
+      }
+      refreshChromecastStatus() {
+        Chromecast.isAvailable((available) => {
+            if (!this._chromecastStatusRow) return;
+            this._chromecastStatusRow.subtitle = available
+                ? _("Available")
+                : _("Not available — install it with: sudo apt install python3-pychromecast");
+        });
+      }
 }

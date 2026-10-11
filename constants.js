@@ -63,6 +63,7 @@ export const SCHEMA_SYNC_LAST_AT = "synclastat";
 export const SCHEMA_SYNC_LAST_REMOTE_MTIME = "synclastremotemtime";
 export const SCHEMA_SYNC_LAST_LOCAL_MTIME = "synclastlocalmtime";
 export const SCHEMA_ENRICH_TRACK_DATA = "enrichtrackdata";
+export const SCHEMA_CHROMECAST_ENABLED = "chromecastenabled";
 
 export const SYNC_BUNDLE_FILENAME = "radio-kayra-sync.json";
 export const SYNC_BUNDLE_SCHEMA_VERSION = 1;

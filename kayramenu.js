@@ -19,6 +19,7 @@ import * as Channels from "./channels.js";
 import * as Constants from "./constants.js";
 import * as Positions from "./positions.js";
 import * as MusicBrainz from "./musicbrainz.js";
+import * as Chromecast from "./chromecast.js";
 import * as KayraSearchProvider from "./searchProvider.js";
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -90,12 +91,14 @@ export const RadiokayraMenuButton = GObject.registerClass(
             if (this._player.isPlaying()) this.saveCurrentPositionNow();
             this.stopPositionPoll();
             MusicBrainz.reset();
+            Chromecast.reset();
             this._player.stop();
             this._player.disconnectSourceBus();
 
             this._settings.disconnect(this._settings_changed_handler);
             this._settings.disconnect(this._height_changed_handler);
             this._settings.disconnect(this._search_event_handler);
+            this._settings.disconnect(this._chromecast_enabled_changed_handler);
             this._settingsMenuItem.disconnect(this._settings_menu_activate_handler);
             this.disconnect(this._icon_mouse_click_handler);
 
@@ -111,6 +114,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._volumeControlPopup = null;
             this._streamInfoPopup = null;
             this._seekControlsPopup = null;
+            this._castMenuItem = null;
             this._settingsMenuItem = null;
             this._channelSection = null;
             this._scrollViewMenuSection = null;
@@ -147,6 +151,17 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._settings = extension.getSettings();
             this._path = extension.path;
             this._activeChannel = null;
+            this._currentStreamUrl = null;
+            this._castingDeviceUuid = null;
+            this._castingDeviceName = null;
+            this._castMenuGeneration = 0;
+
+            Chromecast.init(this._path);
+            Chromecast.setOnStatusChanged((state, title) => {
+                if (!radiokayraPanel._castingDeviceUuid) return;
+                if (state === "IDLE") { radiokayraPanel._castingDeviceUuid = null; radiokayraPanel._castingDeviceName = null; return; }
+                if (!Utils.isEmptyString(title)) radiokayraPanel._streamInfoPopup.onNewTag("", title);
+            });
 
             let volume = this._settings.get_double(Constants.SCHEMA_VOLUME_LEVEL);
 
@@ -213,6 +228,23 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this.menu.addMenuItem(this._seekControlsPopup);
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             //Seek Controls Section END
+
+            //Cast Section — optional, requires python3-pychromecast. Hidden
+            //entirely when the Settings toggle is off or the dependency isn't
+            //installed (see Settings for install instructions); the base
+            //radio/podcast experience never depends on this.
+            this._castMenuItem = new PopupMenu.PopupSubMenuMenuItem(_("Cast to…"));
+            this._castMenuItem.visible = false;
+            this._castMenuItem.menu.connect("open-state-changed", (_menu, open) => {
+                if (open) this.populateCastMenu();
+            });
+            this.menu.addMenuItem(this._castMenuItem);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this.updateCastMenuVisibility();
+            this._chromecast_enabled_changed_handler = this._settings.connect("changed::" + Constants.SCHEMA_CHROMECAST_ENABLED, () => {
+                this.updateCastMenuVisibility();
+            });
+            //Cast Section END
 
             this._tooltip.text = "";
 
@@ -611,8 +643,88 @@ export const RadiokayraMenuButton = GObject.registerClass(
         }
         playUrl(url) {
             url = Utils.processSpecialCharacters(url, false);
+            radiokayraPanel._currentStreamUrl = url;
+            //While actively casting, a channel/episode switch follows the cast
+            //device instead of local playback — otherwise both would play at
+            //once, out of sync. castCurrentStreamTo() keeps the existing
+            //session going; local audio stays stopped until "Stop casting".
+            if (radiokayraPanel._castingDeviceUuid) {
+                radiokayraPanel.castCurrentStreamTo(radiokayraPanel._castingDeviceUuid, radiokayraPanel._castingDeviceName);
+                return;
+            }
             radiokayraPanel._player.changeChannel(url);
             radiokayraPanel._player.play();
+        }
+        //Optional extra on top of the base radio/podcast experience — see
+        //updateCastMenuVisibility() for the availability/Settings gate.
+        //Casts the current stream's own URL directly to the device; the
+        //device fetches it itself (same as any Cast-compatible receiver),
+        //nothing is relayed through this machine.
+        updateCastMenuVisibility() {
+            if (!this._settings.get_boolean(Constants.SCHEMA_CHROMECAST_ENABLED)) {
+                this._castMenuItem.visible = false;
+                return;
+            }
+            Chromecast.isAvailable((available) => { this._castMenuItem.visible = available; });
+        }
+        populateCastMenu() {
+            this._castMenuItem.menu.removeAll();
+            this._castMenuGeneration++;
+            let gen = this._castMenuGeneration;
+
+            if (this._castingDeviceName) {
+                let stopItem = new PopupMenu.PopupMenuItem(_("Stop casting (%s)").format(this._castingDeviceName));
+                stopItem.connect("activate", () => this.stopCasting());
+                this._castMenuItem.menu.addMenuItem(stopItem);
+                this._castMenuItem.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            }
+
+            let searchingItem = new PopupMenu.PopupMenuItem(_("Searching for devices…"), { reactive: false, can_focus: false });
+            this._castMenuItem.menu.addMenuItem(searchingItem);
+
+            Chromecast.discoverDevices((devices) => {
+                if (gen !== this._castMenuGeneration) return; //menu closed/reopened since; this result is stale
+                searchingItem.destroy();
+                if (devices.length === 0) {
+                    this._castMenuItem.menu.addMenuItem(new PopupMenu.PopupMenuItem(_("No devices found"), { reactive: false, can_focus: false }));
+                    return;
+                }
+                devices.forEach((device) => {
+                    let item = new PopupMenu.PopupMenuItem(device.name);
+                    item.connect("activate", () => this.castCurrentStreamTo(device.uuid, device.name));
+                    this._castMenuItem.menu.addMenuItem(item);
+                });
+            });
+        }
+        castCurrentStreamTo(uuid, deviceName) {
+            let url = radiokayraPanel._currentStreamUrl;
+            if (!url) return;
+            let alreadyCasting = radiokayraPanel._castingDeviceUuid !== null;
+            radiokayraPanel._castingDeviceUuid = uuid;
+            radiokayraPanel._castingDeviceName = deviceName;
+            let title = radiokayraPanel._activeChannel?._channelInfo?.getName() ?? "";
+
+            Chromecast.castUrl(uuid, url, "audio/mpeg", title, (success, error) => {
+                if (!success) {
+                    Main.notify(_("Cast"), error ? `${_("Could not cast")}: ${error}` : _("Could not cast"));
+                    radiokayraPanel._castingDeviceUuid = null;
+                    radiokayraPanel._castingDeviceName = null;
+                    return;
+                }
+                if (!alreadyCasting && radiokayraPanel._player.isPlaying()) radiokayraPanel._player.stop();
+                radiokayraPanel.stateReady();
+                Main.notify(_("Cast"), _("Casting to %s").format(deviceName));
+            });
+        }
+        stopCasting() {
+            Chromecast.stopCasting(() => {
+                radiokayraPanel._castingDeviceUuid = null;
+                radiokayraPanel._castingDeviceName = null;
+                if (radiokayraPanel._currentStreamUrl) {
+                    radiokayraPanel._player.changeChannel(radiokayraPanel._currentStreamUrl);
+                    radiokayraPanel._player.play();
+                }
+            });
         }
         //direction: +1 = older (previous), -1 = newer (next). Episode lists
         //come back newest-first, so "older" means a higher array index.
