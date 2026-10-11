@@ -61,11 +61,23 @@ export const StationsPageHandler = class StationsPageHandler {
             this.fillChannelRow(channelInfo);
         }
     }
+    //A clear, unambiguous type label leads every subtitle — a tiny icon
+    //turned out too easy to miss/misread at a glance; text doesn't have
+    //that problem. Manually-added direct-link channels show none —
+    //genuinely ambiguous what they are.
+    getSourceTypeLabel(channelInfo) {
+        if (channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) return _("Podcast");
+        if (channelInfo.source === Constants.CHANNEL_SOURCE_RADIOBROWSER) return _("Radio");
+        return null;
+    }
     //Branches on source: radio-browser.info stations show country/codec/bitrate,
     //podcast feeds show author/episode count, podcast episodes show their own date.
     buildSubtitle(channelInfo) {
+        let parts = [];
+        let typeLabel = this.getSourceTypeLabel(channelInfo);
+        if (typeLabel) parts.push(typeLabel);
+
         if (channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) {
-            let parts = [];
             if (channelInfo.podcastType === "episode") {
                 if (!Utils.isEmptyString(channelInfo.feedTitle)) parts.push(channelInfo.feedTitle);
                 if (!Utils.isEmptyString(channelInfo.datePublished)) {
@@ -78,12 +90,11 @@ export const StationsPageHandler = class StationsPageHandler {
                 if (channelInfo.latestEpisodeGuid && channelInfo.latestEpisodeGuid !== channelInfo.lastSeenEpisodeGuid)
                     parts.push(_("new episode"));
             }
-            return parts.join(" · ");
+        } else {
+            if (!Utils.isEmptyString(channelInfo.country)) parts.push(channelInfo.country);
+            if (!Utils.isEmptyString(channelInfo.codec)) parts.push(channelInfo.codec);
+            if (!Utils.isEmptyString(channelInfo.bitrate)) parts.push(`${channelInfo.bitrate}kb/s`);
         }
-        let parts = [];
-        if (!Utils.isEmptyString(channelInfo.country)) parts.push(channelInfo.country);
-        if (!Utils.isEmptyString(channelInfo.codec)) parts.push(channelInfo.codec);
-        if (!Utils.isEmptyString(channelInfo.bitrate)) parts.push(`${channelInfo.bitrate}kb/s`);
         return parts.join(" · ");
     }
     fillChannelRow(channelInfo) {

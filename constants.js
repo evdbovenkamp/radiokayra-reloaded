@@ -76,6 +76,7 @@ export const CSS_SONG_INFO_DURATION = "song-info-duration";
 export const CSS_LIVE_ICON = "song-info-live-icon";
 export const CSS_SEEK_TIME_LABEL = "seek-time-label";
 export const CSS_NEW_EPISODE_BADGE = "channel-list-new-badge";
+export const CSS_TYPE_BADGE = "channel-list-type-badge";
 
 export const ICON_RADIO_ON_PATH = "/images/radio-icon-on.svg";
 export const ICON_RADIO_OFF_PATH = "/images/radio-icon-off.svg";
