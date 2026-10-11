@@ -1,7 +1,7 @@
 import Gio from "gi://Gio";
 
 import * as Utils from "./utils.js";
-import * as SearchRadioPageHandler from "./prefssearchradio.js";
+import * as SearchPageHandler from "./prefssearch.js";
 import * as StationsPageHandler from "./prefsstationspage.js";
 import * as SettingsPageHandler from "./prefssettingsspage.js";
 import * as AboutPageHandler from "./prefsaboutspage.js";
@@ -28,13 +28,9 @@ export default class RadioKayraPreferences extends ExtensionPreferences {
     this._stationsPageHandler = new StationsPageHandler.StationsPageHandler(this);
     this._stationsPageHandler.createPage();
 
-    //Radio Search
-    this._searchRadioPageHandler = new SearchRadioPageHandler.SearchRadioPageHandler(this);
-    this._searchRadioPageHandler.createPage();
-
-    //Podcast Search
-    this._searchPodcastPageHandler = new SearchPodcastPageHandler.SearchPodcastPageHandler(this);
-    this._searchPodcastPageHandler.createPage();
+    //Search (radio + podcasts)
+    this._searchPageHandler = new SearchPageHandler.SearchPageHandler(this);
+    this._searchPageHandler.createPage();
 
     //Settings
     this._settingsPageHandler = new SettingsPageHandler.SettingsPageHandler(this);
@@ -50,13 +46,11 @@ export default class RadioKayraPreferences extends ExtensionPreferences {
         this.getSettings().set_string(Constants.SCHEMA_CHANNELS_CHANGE_EVENT, Utils.uuidv4(val));
       }
 
-      this._searchRadioPageHandler.clear();
-      this._searchPodcastPageHandler.clear();
+      this._searchPageHandler.clear();
       this._stationsPageHandler.clear();
       this._settingsPageHandler.clear();
 
-      this._searchRadioPageHandler = null;
-      this._searchPodcastPageHandler = null;
+      this._searchPageHandler = null;
       this._stationsPageHandler = null;
       this._settingsPageHandler = null;
     });

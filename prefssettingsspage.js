@@ -3,6 +3,8 @@ import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
 
 import * as Constants from "./constants.js";
+import * as PodcastIndex from "./podcastindex.js";
+import * as Utils from "./utils.js";
 
 import { ExtensionPreferences, gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
@@ -75,11 +77,64 @@ export const SettingsPageHandler = class SettingsPageHandler {
 
         //this._panel_height_spin.value = 220;
         this._schema.bind(Constants.SCHEMA_PANEL_HEIGHT, this._panel_height_spin, 'value', Gio.SettingsBindFlags.DEFAULT);
-        this._settingsGroup.add(this._panel_height_spin); 
+        this._settingsGroup.add(this._panel_height_spin);
 
-        this._settingsPage.add(this._settingsGroup);                
+        this._settingsPage.add(this._settingsGroup);
 
-        
-      }           
+        this.createPodcastIndexGroup();
+      }
+      createPodcastIndexGroup() {
+        this._podcastGroup = new Adw.PreferencesGroup({
+            title: _("PodcastIndex.org"),
+            description: _("A free API key is required to search podcasts."),
+        });
+
+        this._podcastStatusRow = new Adw.ActionRow({ title: _("Status"), subtitle: _("Checking…") });
+        this._podcastGroup.add(this._podcastStatusRow);
+
+        this._podcastKeyRow = new Adw.PasswordEntryRow({ title: _("API Key") });
+        this._podcastGroup.add(this._podcastKeyRow);
+
+        this._podcastSecretRow = new Adw.PasswordEntryRow({ title: _("API Secret") });
+        this._podcastGroup.add(this._podcastSecretRow);
+
+        let saveRow = new Adw.ActionRow();
+        let saveButton = new Gtk.Button({ label: _("Save"), valign: Gtk.Align.CENTER });
+        saveButton.get_style_context().add_class("suggested-action");
+        saveButton.connect("clicked", () => {
+            let key = this._podcastKeyRow.get_text().trim();
+            let secret = this._podcastSecretRow.get_text().trim();
+            if (Utils.isEmptyString(key) || Utils.isEmptyString(secret)) return;
+            PodcastIndex.storeCredentials(key, secret, (success) => {
+                this.refreshPodcastStatus();
+                if (success) {
+                    this._podcastKeyRow.set_text("");
+                    this._podcastSecretRow.set_text("");
+                }
+            });
+        });
+        saveRow.add_suffix(saveButton);
+        this._podcastGroup.add(saveRow);
+
+        let signupLink = new Gtk.LinkButton({
+            valign: Gtk.Align.CENTER,
+            label: _("Get a free API key"),
+            uri: Constants.PODCASTINDEX_SIGNUP_URL,
+        });
+        let linkRow = new Adw.ActionRow();
+        linkRow.add_suffix(signupLink);
+        this._podcastGroup.add(linkRow);
+
+        this._settingsPage.add(this._podcastGroup);
+        this.refreshPodcastStatus();
+      }
+      refreshPodcastStatus() {
+        PodcastIndex.getCredentials((apiKey, apiSecret) => {
+            if (!this._podcastStatusRow) return;
+            this._podcastStatusRow.subtitle = (apiKey && apiSecret)
+                ? _("Configured — stored in your keyring")
+                : _("Not configured yet");
+        });
+      }
  
 }

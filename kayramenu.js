@@ -8,6 +8,7 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import * as Config from "resource:///org/gnome/shell/misc/config.js";
 
 import * as Utils from "./utils.js";
+import * as PodcastIndex from "./podcastindex.js";
 import * as ChannelBox from "./channelbox.js";
 import * as PopControls from "./popcontrols.js";
 import * as PopStreamInfo from "./popstreaminfo.js";
@@ -354,10 +355,42 @@ export const RadiokayraMenuButton = GObject.registerClass(
             radiokayraPanel.onChannelChanged(channel);   
         }
         playResolvedUrl() {
-            let url = radiokayraPanel._activeChannel._channelInfo.getUri();
+            let channelBox = radiokayraPanel._activeChannel;
+            let info = channelBox._channelInfo;
+
+            if (info.source === Constants.CHANNEL_SOURCE_PODCASTINDEX && info.podcastType === "feed") {
+                PodcastIndex.getLatestEpisode(info.feedId, (episode, error) => {
+                    //The user may have clicked another channel while this was in flight.
+                    if (radiokayraPanel._activeChannel !== channelBox) return;
+                    if (error || !episode) {
+                        console.warn(`${Constants.LOG_PREFIX_EXTENSION} PodcastIndex error:[${error}]`);
+                        Main.notify('PodcastIndex.org', error ?? "Unknown error");
+                        return;
+                    }
+                    channelBox.clearNewEpisodeBadge(episode.guid);
+                    radiokayraPanel.persistEpisodeSeen(info.id, episode.guid);
+                    radiokayraPanel.playUrl(episode.enclosureUrl);
+                });
+                return;
+            }
+
+            radiokayraPanel.playUrl(info.getUri());
+        }
+        playUrl(url) {
             url = Utils.processSpecialCharacters(url, false);
             radiokayraPanel._player.changeChannel(url);
             radiokayraPanel._player.play();
+        }
+        //Persists a podcast feed's latest-seen episode straight to channels.json
+        //(prefs writes the same file; there's no other IPC between the two).
+        persistEpisodeSeen(channelId, episodeGuid) {
+            let channelsReadWrite = new Channels.ChannelsReadWrite(radiokayraPanel._path);
+            let channels = channelsReadWrite.getChannels();
+            let channel = channels.find(c => c.id === channelId);
+            if (!channel) return;
+            channel.latestEpisodeGuid = episodeGuid;
+            channel.lastSeenEpisodeGuid = episodeGuid;
+            channelsReadWrite.writeChannelsFile(channels);
         }
         stateReady() {
             radiokayraPanel._controlsPopup.stateReady();            

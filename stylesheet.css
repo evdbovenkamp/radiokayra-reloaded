@@ -13,6 +13,16 @@
     padding-left: 6px;
 }
 
+.channel-list-new-badge {
+    font-size: 0.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: -st-accent-fg-color;
+    background-color: -st-accent-color;
+    border-radius: 99px;
+    padding: 1px 6px;
+}
+
 /* "Now playing" panel */
 .layout-box {
     min-width: 20em;

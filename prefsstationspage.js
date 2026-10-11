@@ -1,8 +1,10 @@
 import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 
 import * as Channels from "./channels.js";
+import * as PodcastIndex from "./podcastindex.js";
 import * as Utils from "./utils.js";
 import * as Constants from "./constants.js";
 import { gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
@@ -60,12 +62,22 @@ export const StationsPageHandler = class StationsPageHandler {
         }
     }
     //Branches on source: radio-browser.info stations show country/codec/bitrate,
-    //podcast feeds show episode/update info once that source lands.
+    //podcast feeds show author/episode count, podcast episodes show their own date.
     buildSubtitle(channelInfo) {
         if (channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) {
             let parts = [];
-            if (!Utils.isEmptyString(channelInfo.author)) parts.push(channelInfo.author);
-            if (!Utils.isEmptyString(channelInfo.episodeCount)) parts.push(`${channelInfo.episodeCount} afleveringen`);
+            if (channelInfo.podcastType === "episode") {
+                if (!Utils.isEmptyString(channelInfo.feedTitle)) parts.push(channelInfo.feedTitle);
+                if (!Utils.isEmptyString(channelInfo.datePublished)) {
+                    let date = GLib.DateTime.new_from_unix_local(channelInfo.datePublished);
+                    parts.push(date.format("%d-%m-%Y"));
+                }
+            } else {
+                if (!Utils.isEmptyString(channelInfo.author)) parts.push(channelInfo.author);
+                if (!Utils.isEmptyString(channelInfo.episodeCount)) parts.push(_("%d episodes").format(channelInfo.episodeCount));
+                if (channelInfo.latestEpisodeGuid && channelInfo.latestEpisodeGuid !== channelInfo.lastSeenEpisodeGuid)
+                    parts.push(_("new episode"));
+            }
             return parts.join(" · ");
         }
         let parts = [];
@@ -111,6 +123,17 @@ export const StationsPageHandler = class StationsPageHandler {
         editButton.get_style_context().add_class("circular");
         editButton.connect("clicked", () => { this.openEditWindow(row); });
         row.add_suffix(editButton);
+
+        if (channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX && channelInfo.podcastType === "feed") {
+            const episodesButton = new Gtk.Button({
+                valign: Gtk.Align.CENTER,
+                icon_name: "view-list-symbolic",
+                tooltip_text: _("Browse episodes"),
+            });
+            episodesButton.get_style_context().add_class("circular");
+            episodesButton.connect("clicked", () => { this.openEpisodesWindow(channelInfo); });
+            row.add_suffix(episodesButton);
+        }
 
         const moveDownButton = new Gtk.Button({
             valign: Gtk.Align.CENTER,
@@ -225,7 +248,88 @@ export const StationsPageHandler = class StationsPageHandler {
         this._rows[index2].name = tempId;
         this._rows[index2].title = tempTitle;
     }
-    
+
+    //Browsing episodes can't play anything here (prefs runs in its own process,
+    //separate from the panel's player) — it's purely for picking an older episode
+    //to add as its own standalone station, and for refreshing the "new episode"
+    //badge the panel shows for this feed.
+    openEpisodesWindow(feedChannelInfo) {
+        let dialog = new Adw.Dialog();
+        dialog.set_title(feedChannelInfo.name);
+        dialog.set_content_width(480);
+        dialog.set_content_height(500);
+        dialog.set_presentation_mode(Adw.ADW_DIALOG_BOTTOM_SHEET);
+        dialog.set_can_close(true);
+
+        let toolbarView = new Adw.ToolbarView();
+        toolbarView.add_top_bar(new Adw.HeaderBar());
+
+        let page = new Adw.PreferencesPage();
+        let group = new Adw.PreferencesGroup({ title: _("Episodes") });
+        page.add(group);
+        toolbarView.set_content(page);
+        dialog.set_child(toolbarView);
+        dialog.present(this._window);
+
+        let loadingRow = new Adw.ActionRow({ title: _("Loading episodes…") });
+        group.add(loadingRow);
+
+        PodcastIndex.getEpisodes(feedChannelInfo.feedId, (episodes, error) => {
+            group.remove(loadingRow);
+            if (error) { group.add(new Adw.ActionRow({ title: error })); return; }
+            if (episodes.length === 0) { group.add(new Adw.ActionRow({ title: _("No episodes found.") })); return; }
+
+            //Refresh the "new episode" marker (doesn't mark as seen; only playing does that).
+            if (episodes[0].guid) this.updateChannelField(feedChannelInfo.id, "latestEpisodeGuid", episodes[0].guid);
+
+            episodes.forEach(episode => {
+                let minutes = Utils.isEmptyString(episode.duration) ? "" : `${Math.round(episode.duration / 60)} min`;
+                let date = Utils.isEmptyString(episode.datePublished) ? "" : GLib.DateTime.new_from_unix_local(episode.datePublished).format("%d-%m-%Y");
+                let row = new Adw.ActionRow({ title: episode.title ?? "" , subtitle: [date, minutes].filter(p => !Utils.isEmptyString(p)).join(" · ")});
+                let addButton = new Gtk.Button({ valign: Gtk.Align.CENTER, icon_name: Constants.ICON_ADD_CHANNEL });
+                addButton.get_style_context().add_class("circular");
+                addButton.connect("clicked", () => {
+                    let added = this.addEpisodeAsChannel(feedChannelInfo, episode);
+                    addButton.set_icon_name(added ? "object-select-symbolic" : Constants.ICON_ADD_CHANNEL);
+                    addButton.set_sensitive(false);
+                });
+                row.add_suffix(addButton);
+                group.add(row);
+            });
+        });
+    }
+
+    addEpisodeAsChannel(feedChannelInfo, episode) {
+        let id = Utils.isEmptyString(episode.guid) ? Utils.uuidv4() : episode.guid;
+        if (this.channelExistsById(id)) return false;
+
+        this.addChannelInfo(id, episode.title, episode.enclosureUrl, {
+            source: Constants.CHANNEL_SOURCE_PODCASTINDEX,
+            podcastType: "episode",
+            feedId: feedChannelInfo.feedId,
+            feedTitle: feedChannelInfo.name,
+            favicon: episode.image ?? feedChannelInfo.favicon ?? null,
+            duration: episode.duration ?? null,
+            datePublished: episode.datePublished ?? null,
+        });
+        let artwork = episode.image ?? feedChannelInfo.favicon;
+        if (artwork) Utils.saveThumbnail(artwork, Utils.getConfigPath() + "/" + id);
+        return true;
+    }
+
+    //Patches a single field on a stored channel without touching the rest
+    //(used to refresh podcast metadata like latestEpisodeGuid).
+    updateChannelField(id, field, value) {
+        for (let index = 0; index < this._channels.length; ++index) {
+            if (this._channels[index].id === id) {
+                this._channels[index][field] = value;
+                this._channelsReadWrite.writeChannelsFile(this._channels);
+                this._kayraPrefs.channelsChanged = true;
+                return;
+            }
+        }
+    }
+
 
     openEditWindow(row) {
         let id = null;

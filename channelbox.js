@@ -36,12 +36,36 @@ export const ChannelBox = GObject.registerClass(
             this._channelLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
             this.add_child(this._channelLabel);
 
+            this.addNewEpisodeBadge();
             this.setOrnament(PopupMenu.Ornament.NONE);
+        }
+        //A podcast feed shows a small "new" marker when the last episode we know
+        //about (refreshed when the user browses episodes in preferences) differs
+        //from the one they last actually played.
+        addNewEpisodeBadge() {
+            let info = this._channelInfo;
+            let hasNewEpisode = info.podcastType === "feed"
+                && !Utils.isEmptyString(info.latestEpisodeGuid)
+                && info.latestEpisodeGuid !== info.lastSeenEpisodeGuid;
+            if (!hasNewEpisode) return;
+
+            this._newBadge = new St.Label({
+                style_class: Constants.CSS_NEW_EPISODE_BADGE,
+                text: _("new"),
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            this.add_child(this._newBadge);
         }
         //Marks this row as the currently playing/selected channel with the same
         //dot ornament GNOME's own menus use for a selected item.
         setActive(isActive) {
             this.setOrnament(isActive ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
+        }
+        clearNewEpisodeBadge(episodeGuid) {
+            this._channelInfo.latestEpisodeGuid = episodeGuid;
+            this._channelInfo.lastSeenEpisodeGuid = episodeGuid;
+            this._newBadge?.destroy();
+            this._newBadge = null;
         }
        
         clear() {
@@ -50,6 +74,9 @@ export const ChannelBox = GObject.registerClass(
 
             this._channelLabel?.destroy();
             this._channelLabel = null;
+
+            this._newBadge?.destroy();
+            this._newBadge = null;
         }
         doesThumbnailExist() {
             let thumbNailPath = Utils.getConfigPath() + "/" + this._channelInfo.getId();
