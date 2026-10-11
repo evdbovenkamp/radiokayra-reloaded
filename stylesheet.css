@@ -59,6 +59,14 @@
     color: -st-accent-color;
 }
 
+/* Podcast seek controls */
+.seek-time-label {
+    padding: 2px 12px;
+    text-align: center;
+    font-size: 0.85em;
+    opacity: 0.8;
+}
+
 .settings-menu-item {
 }
 

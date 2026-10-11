@@ -11,6 +11,13 @@ export const PLAY_PREV_ICON_SIZE = 40;
 export const PLAY_NEXT_ICON_SIZE = 40;
 export const CHANNEL_LIST_THUMB_SIZE = 28;
 export const NOW_PLAYING_THUMB_SIZE = 128;
+export const SEEK_BACK_SECONDS = 15;
+export const SEEK_FORWARD_SECONDS = 30;
+export const SEEK_ICON_SIZE = 20;
+export const EPISODE_NAV_ICON_SIZE = 16;
+export const POSITION_POLL_INTERVAL_SECONDS = 1;
+export const POSITION_SAVE_INTERVAL_SECONDS = 30;
+export const RESUME_EDGE_MARGIN_SECONDS = 10; //don't resume into the very start/end of an episode
 
 export const MAX_RADIO_SEARCH_RESULTS = 30;
 
@@ -67,6 +74,7 @@ export const CSS_SONG_INFO_ARTIST = "song-info-artist";
 export const CSS_SONG_INFO_TITLE = "song-info-title";
 export const CSS_SONG_INFO_DURATION = "song-info-duration";
 export const CSS_LIVE_ICON = "song-info-live-icon";
+export const CSS_SEEK_TIME_LABEL = "seek-time-label";
 export const CSS_NEW_EPISODE_BADGE = "channel-list-new-badge";
 
 export const ICON_RADIO_ON_PATH = "/images/radio-icon-on.svg";
@@ -81,6 +89,10 @@ export const ICON_BACKWARD = "media-skip-backward-symbolic";
 export const ICON_PLAY = "media-playback-start-symbolic";
 export const ICON_FORWARD = "media-skip-forward-symbolic";
 export const ICON_STOP = "media-playback-stop-symbolic";
+export const ICON_SEEK_BACKWARD = "media-seek-backward-symbolic";
+export const ICON_SEEK_FORWARD = "media-seek-forward-symbolic";
+export const ICON_EPISODE_PREV = "go-previous-symbolic";
+export const ICON_EPISODE_NEXT = "go-next-symbolic";
 export const ICON_ADD_CHANNEL = "list-add-symbolic";
 export const ICON_MOVE_DOWN = "go-down-symbolic";
 export const ICON_MOVE_UP = "go-up-symbolic";

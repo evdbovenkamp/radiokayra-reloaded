@@ -1,4 +1,5 @@
 import Gio from "gi://Gio";
+import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
@@ -13,8 +14,10 @@ import * as ChannelBox from "./channelbox.js";
 import * as PopControls from "./popcontrols.js";
 import * as PopStreamInfo from "./popstreaminfo.js";
 import * as PopVolumeControl from "./popvolumecontrol.js";
+import * as PopSeekControls from "./popseekcontrols.js";
 import * as Channels from "./channels.js";
 import * as Constants from "./constants.js";
+import * as Positions from "./positions.js";
 import * as KayraSearchProvider from "./searchProvider.js";
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -38,6 +41,12 @@ const NullRadioPlayer = class NullRadioPlayer {
   setOnStreamStarted(_cb) { }
   setOnStreamEnded(_cb) { }
   setOnTagChanged(_cb) { }
+  setOnReadyToSeek(_cb) { }
+  getPosition() { return null; }
+  getDuration() { return null; }
+  isSeekable() { return false; }
+  seekTo(_seconds) { }
+  seekBy(_deltaSeconds) { }
 };
 
 export const RadiokayraMenuButton = GObject.registerClass(
@@ -46,6 +55,8 @@ export const RadiokayraMenuButton = GObject.registerClass(
     },
     class RadiokayraMenuButton extends PanelMenu.Button {
         destroy() {
+            if (this._player.isPlaying()) this.saveCurrentPositionNow();
+            this.stopPositionPoll();
             this._player.stop();
             this._player.disconnectSourceBus();
 
@@ -66,6 +77,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._controlsPopup = null;
             this._volumeControlPopup = null;
             this._streamInfoPopup = null;
+            this._seekControlsPopup = null;
             this._settingsMenuItem = null;
             this._channelSection = null;
             this._scrollViewMenuSection = null;
@@ -154,8 +166,18 @@ export const RadiokayraMenuButton = GObject.registerClass(
             //Stream Info Section
             this._streamInfoPopup = new PopStreamInfo.StreamInfoPopup(this._player, this._path, this._shellVersion);
             this.menu.addMenuItem(this._streamInfoPopup);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             //Stream Info Section END
+
+            //Seek Controls Section (podcast episodes only; hidden for radio)
+            this._seekControlsPopup = new PopSeekControls.SeekControlsPopup(this._shellVersion);
+            this._seekControlsPopup.setOnSeekBack(() => this._player.seekBy(-Constants.SEEK_BACK_SECONDS));
+            this._seekControlsPopup.setOnSeekForward(() => this._player.seekBy(Constants.SEEK_FORWARD_SECONDS));
+            this._seekControlsPopup.setOnSeekDrag((seconds) => this._player.seekTo(seconds));
+            this._seekControlsPopup.setOnPrevEpisode(() => this.navigateEpisode(1));
+            this._seekControlsPopup.setOnNextEpisode(() => this.navigateEpisode(-1));
+            this.menu.addMenuItem(this._seekControlsPopup);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            //Seek Controls Section END
 
             this._tooltip.text = "";
 
@@ -297,6 +319,25 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._player.setOnStreamStarted(() => { this.onPlayerStreamStarted(); });
             this._player.setOnStreamEnded(() => { this.onPlayerStreamEnded(); });
             this._player.setOnTagChanged((artist, title) => { this.onPlayerTagChanged(artist, title); });
+            this._player.setOnReadyToSeek(() => { this.onPlayerReadyToSeek(); });
+        }
+        //Fires once the pipeline can actually be queried/seeked for the episode
+        //that just started; the right moment to apply a saved resume position.
+        onPlayerReadyToSeek() {
+            let info = radiokayraPanel._activeChannel?._channelInfo;
+            if (!info || info.source !== Constants.CHANNEL_SOURCE_PODCASTINDEX) return;
+            let guid = radiokayraPanel._currentEpisodeGuid;
+            if (!guid) return;
+
+            let syncFolder = radiokayraPanel._settings.get_string(Constants.SCHEMA_SYNC_FOLDER);
+            Positions.getPosition(info.id, syncFolder, (saved) => {
+                if (!saved || saved.guid !== guid) return; //resuming into a different episode would be wrong
+                let duration = radiokayraPanel._player.getDuration();
+                if (duration === null) return;
+                if (saved.position < Constants.RESUME_EDGE_MARGIN_SECONDS) return; //pointless this close to the start
+                if (saved.position > duration - Constants.RESUME_EDGE_MARGIN_SECONDS) return; //it'd end immediately
+                radiokayraPanel._player.seekTo(saved.position);
+            });
         }
         onPlayerStreamStarted() {
             if (radiokayraPanel._activeChannel === null) {
@@ -311,11 +352,63 @@ export const RadiokayraMenuButton = GObject.registerClass(
             let playingChannelInfo = radiokayraPanel._activeChannel._channelInfo;
             if (playingChannelInfo.getSource() === Constants.CHANNEL_SOURCE_RADIOBROWSER)
                 Utils.registerRadioBrowserClick(playingChannelInfo.getStationUuid());
+
+            radiokayraPanel._seekControlsPopup.setEpisodeNavEnabled(!!radiokayraPanel._currentFeedId);
+            radiokayraPanel.startPositionPoll();
             console.info("STREAM STARTED");
         }
         onPlayerStreamEnded() {
             radiokayraPanel.setTrayIconStopped();
             radiokayraPanel.stateReady();
+            radiokayraPanel.stopPositionPoll();
+            radiokayraPanel._seekControlsPopup.hideForRadio();
+            //Natural end of episode: nothing meaningful to resume into.
+            radiokayraPanel.clearCurrentPosition();
+        }
+        //--- Playback position: polling, saving, resuming ---
+        startPositionPoll() {
+            this.stopPositionPoll();
+            this._positionTickCount = 0;
+            this._positionPollSourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, Constants.POSITION_POLL_INTERVAL_SECONDS, () => {
+                this.onPositionTick();
+                return GLib.SOURCE_CONTINUE;
+            });
+        }
+        stopPositionPoll() {
+            if (this._positionPollSourceId) {
+                GLib.source_remove(this._positionPollSourceId);
+                this._positionPollSourceId = null;
+            }
+        }
+        onPositionTick() {
+            if (!radiokayraPanel._player.isPlaying()) return;
+            let info = radiokayraPanel._activeChannel?._channelInfo;
+            let isPodcast = info?.source === Constants.CHANNEL_SOURCE_PODCASTINDEX;
+            let position = radiokayraPanel._player.getPosition();
+            let duration = radiokayraPanel._player.getDuration();
+
+            if (isPodcast && duration !== null) radiokayraPanel._seekControlsPopup.updateProgress(position, duration);
+            else radiokayraPanel._seekControlsPopup.hideForRadio();
+
+            radiokayraPanel._positionTickCount++;
+            if (isPodcast && position !== null && radiokayraPanel._positionTickCount % Constants.POSITION_SAVE_INTERVAL_SECONDS === 0)
+                radiokayraPanel.saveCurrentPositionNow(position);
+        }
+        saveCurrentPositionNow(position) {
+            let info = radiokayraPanel._activeChannel?._channelInfo;
+            if (!info || info.source !== Constants.CHANNEL_SOURCE_PODCASTINDEX) return;
+            let guid = radiokayraPanel._currentEpisodeGuid;
+            if (!guid) return;
+            if (position === undefined) position = radiokayraPanel._player.getPosition();
+            if (position === null) return;
+            let syncFolder = radiokayraPanel._settings.get_string(Constants.SCHEMA_SYNC_FOLDER);
+            Positions.savePosition(info.id, guid, position, syncFolder);
+        }
+        clearCurrentPosition() {
+            let info = radiokayraPanel._activeChannel?._channelInfo;
+            if (!info || info.source !== Constants.CHANNEL_SOURCE_PODCASTINDEX) return;
+            let syncFolder = radiokayraPanel._settings.get_string(Constants.SCHEMA_SYNC_FOLDER);
+            Positions.clearPosition(info.id, syncFolder);
         }
         onPlayerError(type, message) { console.warn(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_PLAYER_ERROR} [${type}] [${message}]`); }
         onPlayerTagChanged(artist, title) {
@@ -343,10 +436,19 @@ export const RadiokayraMenuButton = GObject.registerClass(
                 console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[${radiokayraPanel._activeChannel._channelInfo.getId()}] -> [${channel._channelInfo.getId()}]`);
                 radiokayraPanel._activeChannel.setActive(false);
             }
+
+            if (radiokayraPanel._player.isPlaying()) {
+                radiokayraPanel.saveCurrentPositionNow();
+                this._player.stop();
+            }
+            radiokayraPanel.stopPositionPoll();
+
             radiokayraPanel._activeChannel = channel;
             radiokayraPanel._activeChannel.setActive(true);
-
-            if (radiokayraPanel._player.isPlaying()) this._player.stop();
+            radiokayraPanel._currentEpisodeGuid = null;
+            radiokayraPanel._currentFeedId = null;
+            radiokayraPanel._episodeListCache = null;
+            radiokayraPanel._seekControlsPopup.hideForRadio();
 
             radiokayraPanel.stateReady();
             radiokayraPanel.stateLoadingChannel();
@@ -356,6 +458,8 @@ export const RadiokayraMenuButton = GObject.registerClass(
             if (radiokayraPanel._activeChannel === null) return; //"Play Clicked: No active channels!"
 
             if (radiokayraPanel._player.isPlaying()) { //Stop if playing
+                radiokayraPanel.saveCurrentPositionNow();
+                radiokayraPanel.stopPositionPoll();
                 radiokayraPanel._player.stop();
                 radiokayraPanel.stateReady();
                 radiokayraPanel.setTrayIconStopped();
@@ -402,6 +506,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
             let info = channelBox._channelInfo;
 
             if (info.source === Constants.CHANNEL_SOURCE_PODCASTINDEX && info.podcastType === "feed") {
+                radiokayraPanel._currentFeedId = info.feedId;
                 PodcastIndex.getLatestEpisode(info.feedId, (episode, error) => {
                     //The user may have clicked another channel while this was in flight.
                     if (radiokayraPanel._activeChannel !== channelBox) return;
@@ -412,9 +517,15 @@ export const RadiokayraMenuButton = GObject.registerClass(
                     }
                     channelBox.clearNewEpisodeBadge(episode.guid);
                     radiokayraPanel.persistEpisodeSeen(info.id, episode.guid);
+                    radiokayraPanel._currentEpisodeGuid = episode.guid;
                     radiokayraPanel.playUrl(episode.enclosureUrl);
                 });
                 return;
+            }
+
+            if (info.source === Constants.CHANNEL_SOURCE_PODCASTINDEX && info.podcastType === "episode") {
+                radiokayraPanel._currentEpisodeGuid = info.id; //id === guid for standalone episode channels
+                radiokayraPanel._currentFeedId = info.feedId ?? null;
             }
 
             radiokayraPanel.playUrl(info.getUri());
@@ -423,6 +534,41 @@ export const RadiokayraMenuButton = GObject.registerClass(
             url = Utils.processSpecialCharacters(url, false);
             radiokayraPanel._player.changeChannel(url);
             radiokayraPanel._player.play();
+        }
+        //direction: +1 = older (previous), -1 = newer (next). Episode lists
+        //come back newest-first, so "older" means a higher array index.
+        //Navigating doesn't touch channels.json — it's the same active channel
+        //slot, just loaded with a different episode, exactly like what a
+        //"feed" channel already does for its latest episode on every play.
+        navigateEpisode(direction) {
+            let channelBox = radiokayraPanel._activeChannel;
+            let info = channelBox?._channelInfo;
+            if (!info || info.source !== Constants.CHANNEL_SOURCE_PODCASTINDEX) return;
+            let feedId = radiokayraPanel._currentFeedId;
+            if (!feedId) return;
+
+            let proceed = (episodes) => {
+                if (radiokayraPanel._activeChannel !== channelBox) return; //switched away while fetching
+                let currentIndex = episodes.findIndex(e => e.guid === radiokayraPanel._currentEpisodeGuid);
+                let newIndex = (currentIndex === -1 ? 0 : currentIndex) + direction;
+                if (newIndex < 0 || newIndex >= episodes.length) return; //no more episodes that way
+
+                let episode = episodes[newIndex];
+                if (radiokayraPanel._player.isPlaying()) radiokayraPanel.saveCurrentPositionNow();
+                radiokayraPanel._currentEpisodeGuid = episode.guid;
+                radiokayraPanel._streamInfoPopup.setChannelName(episode.title);
+                radiokayraPanel.stateLoadingChannel();
+                if (radiokayraPanel._player.isPlaying()) radiokayraPanel._player.stop();
+                radiokayraPanel.playUrl(episode.enclosureUrl);
+            };
+
+            let cache = radiokayraPanel._episodeListCache;
+            if (cache && cache.feedId === feedId) { proceed(cache.episodes); return; }
+            PodcastIndex.getEpisodes(feedId, (episodes, error) => {
+                if (error) { Main.notify('PodcastIndex.org', error); return; }
+                radiokayraPanel._episodeListCache = { feedId, episodes };
+                proceed(episodes);
+            });
         }
         //Persists a podcast feed's latest-seen episode straight to channels.json
         //(prefs writes the same file; there's no other IPC between the two).
