@@ -56,8 +56,19 @@ _discover_generation = 0
 _discover_done_emitted = False
 
 
+#Multiple threads call this concurrently (the main command loop, each
+#discover()/cast() worker thread, and pychromecast's own socket-listener
+#thread delivering media status) — confirmed live that two near-simultaneous
+#prints from different threads can interleave into one garbled line on the
+#GJS side (two JSON objects glued together with no newline between them,
+#which then fails to parse and is silently dropped). One lock around the
+#whole print makes each line atomic.
+_emit_lock = threading.Lock()
+
+
 def emit(obj):
-    print(json.dumps(obj), flush=True)
+    with _emit_lock:
+        print(json.dumps(obj), flush=True)
 
 
 class _StatusListener:

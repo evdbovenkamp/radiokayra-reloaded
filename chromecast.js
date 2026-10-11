@@ -122,7 +122,10 @@ function onHelperExited() {
 
 function handleEvent(line) {
     let msg;
-    try { msg = JSON.parse(line); } catch (e) { return; }
+    try { msg = JSON.parse(line); } catch (e) {
+        console.warn(`${Constants.LOG_PREFIX_EXTENSION} Chromecast: unparseable line from helper: [${line}]`);
+        return;
+    }
 
     switch (msg.event) {
         case "ready":
