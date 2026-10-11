@@ -4,10 +4,6 @@ import * as Constants from "./constants.js";
 
 export const RadioPlayer = class RadioPlayer {
   constructor(volume) {
-    this.ERROR_NONE = 0;
-    this.ERROR_UNKNOWN = 1;
-    this.ERROR_YTDLP = 2;
-    this.ERROR_GSTREAMER = 3;
     this.volume = volume;
     this.source = null;
     this.initialized = false;

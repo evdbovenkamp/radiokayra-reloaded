@@ -3,7 +3,6 @@ import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
 
 import * as Channels from "./channels.js";
-import * as YtdlpHandler from "./ytdlphandler.js";
 import * as Utils from "./utils.js";
 import * as Constants from "./constants.js";
 import { gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
@@ -55,12 +54,25 @@ export const StationsPageHandler = class StationsPageHandler {
                 channelData.name,
                 channelData.uri,
                 channelData.order,
-                channelData.useYtdlp,
-                false,
                 channelData
             );
             this.fillChannelRow(channelInfo);
         }
+    }
+    //Branches on source: radio-browser.info stations show country/codec/bitrate,
+    //podcast feeds show episode/update info once that source lands.
+    buildSubtitle(channelInfo) {
+        if (channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) {
+            let parts = [];
+            if (!Utils.isEmptyString(channelInfo.author)) parts.push(channelInfo.author);
+            if (!Utils.isEmptyString(channelInfo.episodeCount)) parts.push(`${channelInfo.episodeCount} afleveringen`);
+            return parts.join(" · ");
+        }
+        let parts = [];
+        if (!Utils.isEmptyString(channelInfo.country)) parts.push(channelInfo.country);
+        if (!Utils.isEmptyString(channelInfo.codec)) parts.push(channelInfo.codec);
+        if (!Utils.isEmptyString(channelInfo.bitrate)) parts.push(`${channelInfo.bitrate}kb/s`);
+        return parts.join(" · ");
     }
     fillChannelRow(channelInfo) {
         const row = new Adw.ActionRow();
@@ -68,11 +80,7 @@ export const StationsPageHandler = class StationsPageHandler {
         row.name = channelInfo.id;
         row.title = channelInfo.name;
 
-        let subtitleParts = [];
-        if (!Utils.isEmptyString(channelInfo.country)) subtitleParts.push(channelInfo.country);
-        if (!Utils.isEmptyString(channelInfo.codec)) subtitleParts.push(channelInfo.codec);
-        if (!Utils.isEmptyString(channelInfo.bitrate)) subtitleParts.push(`${channelInfo.bitrate}kb/s`);
-        if (subtitleParts.length > 0) row.subtitle = subtitleParts.join(" · ");
+        row.subtitle = this.buildSubtitle(channelInfo);
 
         let thumbNailPath = Utils.getConfigPath() + "/" + channelInfo.id;
         let thumbNailFile = Gio.file_new_for_path(thumbNailPath);
@@ -242,33 +250,10 @@ export const StationsPageHandler = class StationsPageHandler {
         let group = new Adw.PreferencesGroup();
 
         this.uriEntry = new Adw.EntryRow({ title: _("Channel URL") });
-        this.loadingSpinner = new Gtk.Spinner({ valign: Gtk.Align.CENTER });
-        let getNameButton = new Gtk.Button({
-            valign: Gtk.Align.CENTER,
-            icon_name: "view-refresh-symbolic",
-            tooltip_text: _("Fetch name from URL"),
-        });
-        getNameButton.get_style_context().add_class("flat");
-        getNameButton.connect("clicked", () => {
-            let newUri = this.uriEntry.get_text();
-            if (!Utils.isEmptyString(newUri)) {
-                this.loadingSpinner.start();
-                YtdlpHandler.getFullChannelJson(id, newUri, this);
-            }
-        });
-        this.uriEntry.add_suffix(this.loadingSpinner);
-        this.uriEntry.add_suffix(getNameButton);
         group.add(this.uriEntry);
 
         this.nameEntry = new Adw.EntryRow({ title: _("Channel Name") });
         group.add(this.nameEntry);
-
-        this.ytdlpCheck = new Adw.SwitchRow({
-            title: _("Use yt-dlp"),
-            subtitle: _("Enable for YouTube and other sites that need resolving. Disable for a direct audio stream link."),
-        });
-        this.ytdlpCheck.set_active(true);
-        group.add(this.ytdlpCheck);
 
         page.add(group);
 
@@ -283,7 +268,6 @@ export const StationsPageHandler = class StationsPageHandler {
         saveChannelButton.connect("clicked", () => {
             //Get Info from UI
             let uri = this.uriEntry.get_text();
-            let useYtdlp = this.ytdlpCheck.get_active();
             let name = this.nameEntry.get_text();
 
             //Encode special characters
@@ -297,11 +281,10 @@ export const StationsPageHandler = class StationsPageHandler {
                     channelInfo.id,
                     encodedName,
                     encodedUri,
-                    useYtdlp,
                 );
             }
             else if (!this.channelExists(encodedUri))  //New channel, new Uri
-                this.addChannelInfo(Utils.uuidv4(), encodedName, encodedUri, useYtdlp);
+                this.addChannelInfo(Utils.uuidv4(), encodedName, encodedUri);
             else  //New channel but Uri already exists
                 console.info("New channel uri:[" + encodedUri + "] already exists");
 
@@ -314,8 +297,6 @@ export const StationsPageHandler = class StationsPageHandler {
         toolbarView.set_content(contentBox);
 
         if (channelInfo !== null) {
-            this.ytdlpCheck.set_active(channelInfo.getUseYtdlp());
-
             //Load decoded uri from file into UI
             let decodedUri = Utils.processSpecialCharacters(
                 channelInfo.getUri(),
@@ -334,17 +315,6 @@ export const StationsPageHandler = class StationsPageHandler {
         dialog.set_child(toolbarView);
         dialog.present(this._window);
     }
-    onFullChannelJsonReceived(id, channelData, error) {
-        if (channelData === null) {
-            console.error(`${Constants.LOG_PREFIX_YOUTUBE_HANDLER} ${Constants.LOG_ERROR_GET_FULL_JSON}:[${error}]`);
-            return;
-        }
-        let title = "";
-        if (channelData.playlist_count >= 1) title = channelData.title; //Ytdlp behaviour
-        else title = channelData.fulltitle;
-        this.nameEntry.set_text(title);
-        this.loadingSpinner.stop();
-    }
 
     getChannelInfoById(id) {
         let channelInfo = null;
@@ -356,8 +326,6 @@ export const StationsPageHandler = class StationsPageHandler {
                     channelData.name,
                     channelData.uri,
                     channelData.order,
-                    channelData.useYtdlp,
-                    false,
                     channelData
                 );
                 break;
@@ -365,14 +333,13 @@ export const StationsPageHandler = class StationsPageHandler {
         }
         return channelInfo;
     }
-    updateChannelInfo(row, id, name, uri, useYtdlp) {
+    updateChannelInfo(row, id, name, uri) {
         for (let index = 0; index < this._channels.length; ++index) {
             let channelData = this._channels[index];
             if (channelData.id === id) {
                 this._channels[index].name = name;
                 this._channels[index].uri = uri;
-                this._channels[index].useYtdlp = useYtdlp;
-                this.writeChannels();                
+                this.writeChannels();
                 row.name = id;
                 row.title = name;
                 return;
@@ -380,13 +347,12 @@ export const StationsPageHandler = class StationsPageHandler {
         }
     }
 
-    addChannelInfo(newId, newName, newUri, newUseYtdlp, extraMeta = {}) {
+    addChannelInfo(newId, newName, newUri, extraMeta = {}) {
         let newOrder = this._channels.length + 1;
         const newChannel = {
             id: newId,
             name: newName,
             order: newOrder,
-            useYtdlp: newUseYtdlp,
             uri: newUri,
             ...extraMeta,
         };
@@ -397,8 +363,6 @@ export const StationsPageHandler = class StationsPageHandler {
             newName,
             newUri,
             newOrder,
-            newUseYtdlp,
-            false,
             extraMeta
         );
         this.fillChannelRow(channelInfo);
@@ -408,6 +372,9 @@ export const StationsPageHandler = class StationsPageHandler {
             if (this._channels[index].uri === encodedUri) return true;
         }
         return false;
+    }
+    channelExistsById(id) {
+        return this._channels.some(channel => channel.id === id);
     }
 
 }

@@ -21,49 +21,26 @@ export const AboutPageHandler = class AboutPageHandler {
         this._aboutPage.icon_name = Constants.ICON_ABOUT;
     
         this._window.add(this._aboutPage);
-        this._rows = [];        
-        let title_text = 'Radio Kayra v2.1\n';
-        title_text += _('A foss hobby project by Ayhan Avcı');
-        title_text += _('(2024-2025)');
-                
-        this.about = new Adw.PreferencesGroup({ title: title_text, description: _("Mid clicking the radio icon toggles play / stop.\nDon't forget to install yt-dlp &amp; gstreamer. Links at the bottom. Enjoy!")});
-        this._aboutPage.add(this.about);        
-                                                       
-        this._urlsGroup = new Adw.PreferencesGroup({ title: _('Links')});        
+        this._rows = [];
+        let title_text = 'Radio Kayra Reloaded\n';
+        title_text += _('An independent fork, originally by Ayhan Avcı');
+
+        this.about = new Adw.PreferencesGroup({ title: title_text, description: _("Mid clicking the radio icon toggles play / stop.\nDon't forget to install gstreamer. Links at the bottom. Enjoy!")});
+        this._aboutPage.add(this.about);
+
+        this._urlsGroup = new Adw.PreferencesGroup({ title: _('Links')});
 
         let row = new Adw.ActionRow();
-        row.title = _("Project");
+        row.title = _("Original project");
         let newLink = new Gtk.LinkButton({
           valign: Gtk.Align.CENTER,
           label: "https://github.com/ayhanavci/radiokayra",
           focusable: 1,
           uri: "https://github.com/ayhanavci/radiokayra"
-        });        
-        row.add_suffix(newLink);        
-        this._urlsGroup.add(row); 
-        
-        row = new Adw.ActionRow();
-        row.title = _("Extension");
-        newLink = new Gtk.LinkButton({
-          valign: Gtk.Align.CENTER,
-          label: "https://extensions.gnome.org/extension/7649/radio-kayra/",
-          focusable: 1,
-          uri: "https://extensions.gnome.org/extension/7649/radio-kayra/"
-        });        
-        row.add_suffix(newLink);        
-        this._urlsGroup.add(row); 
+        });
+        row.add_suffix(newLink);
+        this._urlsGroup.add(row);
 
-        row = new Adw.ActionRow();
-        row.title = _("Yt-dlp");
-        newLink = new Gtk.LinkButton({
-          valign: Gtk.Align.CENTER,
-          label: "https://github.com/yt-dlp/yt-dlp/wiki/Installation",
-          focusable: 1,
-          uri: "https://github.com/yt-dlp/yt-dlp/wiki/Installation"
-        });        
-        row.add_suffix(newLink);        
-        this._urlsGroup.add(row); 
-        
         row = new Adw.ActionRow();
         row.title = _("GStreamer");
         newLink = new Gtk.LinkButton({

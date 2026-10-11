@@ -21,14 +21,6 @@ export const ChannelBox = GObject.registerClass(
             this._radiokayraPanel = radiokayraPanel;
             this._is_live = false;
             this._duration = 0;
-            this._resolvedUrl = "";
-            if (this._channelInfo.getUseYtdlp()) {
-                this._resolved = false;
-            }
-            else {
-                this._resolvedUrl = this._channelInfo.getUri();
-                this._resolved = true;
-            }
 
             this.addThumbnail();
             this._channelLabel = new St.Label({
@@ -59,16 +51,6 @@ export const ChannelBox = GObject.registerClass(
             this._channelLabel?.destroy();
             this._channelLabel = null;
         }
-        getResolvedUrl() {
-            return this._resolvedUrl;
-        }
-        setResolvedUrl(url) {
-            this._resolvedUrl = url;
-            this._resolved = true;
-        }
-        isResolved() { return this._resolved; }
-        setIsLive(value) { if (value === "True") this._is_live = true; }
-        setDuration(value) { this._duration = value; }
         doesThumbnailExist() {
             let thumbNailPath = Utils.getConfigPath() + "/" + this._channelInfo.getId();
             let thumbNailFile = Gio.file_new_for_path(thumbNailPath);

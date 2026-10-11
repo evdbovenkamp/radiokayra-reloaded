@@ -157,12 +157,12 @@ export const StreamInfoPopup = GObject.registerClass(
             this.showThumbnail(channelBox);
             this.setChannelName(channelBox._channelInfo.getName());
             this.show();
+            //_is_live/_duration are no longer set by yt-dlp; reserved for a future
+            //podcast "live episode" indicator (PodcastIndex returns liveItems) and
+            //episode duration display.
             if (channelBox._is_live) { this.showOnAir(); this.hideDuration(); }
             else if (channelBox._duration !== 0) { this.showDuration(channelBox); this.hideOnAir();} 
             else { this.hideOnAir(); this.hideDuration();}
-
-            //Uncomment if you want to do something with the video info
-            //YtdlpHandler.getChannelJson_async(channelBox._channelInfo.getId(), channelBox._channelInfo.getUri(), this);
         }
         stateLoading() {
             this._onair.hide();

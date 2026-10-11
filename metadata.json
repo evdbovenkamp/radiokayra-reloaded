@@ -1,7 +1,7 @@
 {
   "uuid": "radiokayra-reloaded@europetrader.gmail.com",
   "name": "Radio Kayra Reloaded",
-  "description": "A tray radio extension to listen, search and manage radio stations and Youtube videos. Searches a database of 50000+ radio stations (radio-browser.info) and Youtube. IMPORTANT: Requires installation of yt-dlp and GStreamer.",
+  "description": "A tray radio extension to listen, search and manage radio stations and podcasts. Searches 50000+ radio stations via radio-browser.info and podcasts via podcastindex.org. IMPORTANT: Requires installation of GStreamer.",
   "shell-version": ["46", "47", "48", "49", "50"],
   "settings-schema": "org.gnome.shell.extensions.radiokayra-reloaded",
   "url": "https://github.com/ayhanavci/radiokayra",

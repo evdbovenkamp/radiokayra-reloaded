@@ -3,33 +3,24 @@ import GLib from "gi://GLib";
 import * as Constants from "./constants.js";
 
 export const ChannelInfo = class ChannelInfo {
-  constructor(id, name, uri, order, useYtdlp, islive, meta = {}) {
+  constructor(id, name, uri, order, meta = {}) {
     this.id = id;
     this.name = name;
     this.uri = uri;
     this.order = order;
-    this.useYtdlp = useYtdlp;
-    this.islive = islive;
-    //Optional station metadata (populated when added via radio-browser.info search)
-    this.source = meta.source ?? null;
-    this.stationuuid = meta.stationuuid ?? null;
-    this.favicon = meta.favicon ?? null;
-    this.tags = meta.tags ?? null;
-    this.country = meta.country ?? null;
-    this.codec = meta.codec ?? null;
-    this.bitrate = meta.bitrate ?? null;
-    this.homepage = meta.homepage ?? null;
+    //Optional metadata, populated when added via radio-browser.info or
+    //PodcastIndex.org search: source, stationuuid/feedId, favicon, tags,
+    //country, codec, bitrate, homepage, feedTitle, duration, datePublished.
+    Object.assign(this, meta);
   }
   getId() { return this.id; }
   getName() { return this.name; }
   getOrder() { return this.order; }
-  getUseYtdlp() { return this.useYtdlp; }
   getUri() { return this.uri; }
   getStationUuid() { return this.stationuuid; }
   getSource() { return this.source; }
   setName(name) { this.name = name; }
   setUri(uri) { this.uri = uri; }
-  setuseYtdlp(useYtdlp) { this.useYtdlp = useYtdlp; }
 };
 export const ChannelsReadWrite = class ChannelsReadWrite {
   constructor(extensionPath) {
@@ -56,8 +47,14 @@ export const ChannelsReadWrite = class ChannelsReadWrite {
     const channelsString = decoder.decode(contents);
 
     let channelsData = null;
-    try { channelsData = JSON.parse(channelsString); } 
+    try { channelsData = JSON.parse(channelsString); }
     catch (e) { console.warn(`${Constants.LOG_PREFIX_CHANNELS} ${Constants.LOG_FAILED_TO_PARSE_JSON}:[${e}]`); }
+
+    //Migration: older versions stored a useYtdlp flag; yt-dlp resolving no
+    //longer exists, every channel uri is now played directly.
+    if (Array.isArray(channelsData))
+      channelsData.forEach(channel => delete channel.useYtdlp);
+
     return channelsData;
   }
   writeChannelsFile(channelsData) {

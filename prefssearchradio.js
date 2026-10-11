@@ -246,7 +246,7 @@ export const SearchRadioPageHandler = class ChannelInfo {
             bitrate: channel.bitrate ?? null,
             homepage: channel.homepage ?? null,
         };
-        this._kayraPrefs._stationsPageHandler.addChannelInfo(id, encodedName, encodedUri, false, extraMeta);
+        this._kayraPrefs._stationsPageHandler.addChannelInfo(id, encodedName, encodedUri, extraMeta);
         return true;
     }
 }

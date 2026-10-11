@@ -7,7 +7,6 @@ import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 import * as Config from "resource:///org/gnome/shell/misc/config.js";
 
-import * as YtdlpHandler from "./ytdlphandler.js";
 import * as Utils from "./utils.js";
 import * as ChannelBox from "./channelbox.js";
 import * as PopControls from "./popcontrols.js";
@@ -79,8 +78,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
             super._init(0.0, "RadiokayraMenuButton");            
             radiokayraPanel = this;
             this._shellVersion = this.getShellversion();
-            //console.log("SHELL VERSION:" + this._shellVersion);            
-            this._lastClickedChannelId = "";
+            //console.log("SHELL VERSION:" + this._shellVersion);
             this._kayraExtension = extension;
             this._settings = extension.getSettings();
             this._path = extension.path;
@@ -244,8 +242,6 @@ export const RadiokayraMenuButton = GObject.registerClass(
                     channelData.name,
                     channelData.uri,
                     channelData.order,
-                    channelData.useYtdlp,
-                    false,
                     channelData
                 );
                 let channelBox = new ChannelBox.ChannelBox(channelInfo, this);
@@ -305,15 +301,12 @@ export const RadiokayraMenuButton = GObject.registerClass(
             }
             radiokayraPanel._activeChannel = channel;
             radiokayraPanel._activeChannel.setActive(true);
-            radiokayraPanel._lastClickedChannelId = radiokayraPanel._activeChannel._channelInfo.getId();
 
             if (radiokayraPanel._player.isPlaying()) this._player.stop();
 
             radiokayraPanel.stateReady();
             radiokayraPanel.stateLoadingChannel();
-
-            if (radiokayraPanel._activeChannel.isResolved()) radiokayraPanel.playResolvedUrl();
-            else YtdlpHandler.getShortChannelJson(radiokayraPanel._activeChannel, this);
+            radiokayraPanel.playResolvedUrl();
         }
         onPlayClicked() {
             if (radiokayraPanel._activeChannel === null) return; //"Play Clicked: No active channels!"
@@ -322,15 +315,12 @@ export const RadiokayraMenuButton = GObject.registerClass(
                 radiokayraPanel._player.stop();
                 radiokayraPanel.stateReady();
                 radiokayraPanel.setTrayIconStopped();
-            } else { //Play if stopped        
+            } else { //Play if stopped
                 radiokayraPanel.stateLoadingChannel();
-                if (radiokayraPanel._player.isSourceReady()) //A resolved channel was already playing. Continue.
+                if (radiokayraPanel._player.isSourceReady()) //Already playing this channel before. Continue.
                     radiokayraPanel._player.play();
-                else if (radiokayraPanel._activeChannel.isResolved()) //First time play is clicked. It plays last played channel. Source wasn't ready but url is resolved. Likely a non-youtube stream.          
+                else //First time play is clicked. It plays last played channel.
                     radiokayraPanel.playResolvedUrl();
-                else  //First time play is clicked. It plays last played channel. Source isn't ready neither the url. Likely a youtube channel.          
-                    YtdlpHandler.getShortChannelJson(radiokayraPanel._activeChannel, radiokayraPanel);
-
             }
         }
         onPlayNextClicked() {            
@@ -363,27 +353,9 @@ export const RadiokayraMenuButton = GObject.registerClass(
             console.warn(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_NAVIGATE}:[Switching to: ${channel._channelInfo.getName()}]`);              
             radiokayraPanel.onChannelChanged(channel);   
         }
-        onShortChannelJsonSuccess(channelBox, jsonData) {
-            if (!Utils.isEmptyString(radiokayraPanel._lastClickedChannelId) && channelBox._channelInfo.getId() !== radiokayraPanel._lastClickedChannelId)
-                return; //User clicked another channel before yt-dlp returned. Don't do anything!
-            console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_PROCESSED_URL_SUCCESS}:[${jsonData.url}]`);
-            radiokayraPanel._activeChannel.setResolvedUrl(jsonData.url);
-            radiokayraPanel._activeChannel.setIsLive(jsonData.is_live);
-            if (!Utils.isEmptyString(jsonData.duration)) radiokayraPanel._activeChannel.setDuration(jsonData.duration);
-            radiokayraPanel.playResolvedUrl();
-
-            let thumbNailPath = Utils.getConfigPath() + "/" + channelBox._channelInfo.getId();
-            if (jsonData.thumbnail) Utils.saveThumbnail(jsonData.thumbnail, thumbNailPath);
-            radiokayraPanel._streamInfoPopup.showThumbnail(channelBox);
-
-        }
-        onShortChannelJsonError(errormsg) {
-            console.warn(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_PROCESSED_URL_ERROR}:[${errormsg}]`);
-            Main.notify('Yt-dlp error', errormsg);
-        }
         playResolvedUrl() {
-            let url = radiokayraPanel._activeChannel.getResolvedUrl();            
-            url = Utils.processSpecialCharacters(url, false);        
+            let url = radiokayraPanel._activeChannel._channelInfo.getUri();
+            url = Utils.processSpecialCharacters(url, false);
             radiokayraPanel._player.changeChannel(url);
             radiokayraPanel._player.play();
         }
@@ -394,7 +366,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
         stateLoadingChannel() {                        
             radiokayraPanel._streamInfoPopup.stateLoading();
             radiokayraPanel._controlsPopup.stateLoading();
-            console.info("Playing Link:[" + radiokayraPanel._activeChannel._channelInfo.getUri() + "] Ytdl:[" + radiokayraPanel._activeChannel._channelInfo.getUseYtdlp() + "]");
+            console.info("Playing Link:[" + radiokayraPanel._activeChannel._channelInfo.getUri() + "]");
             radiokayraPanel._settings.set_string(
                 Constants.SCHEMA_LAST_PLAYED,
                 radiokayraPanel._activeChannel._channelInfo.getId(),

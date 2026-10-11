@@ -12,7 +12,6 @@ export const PLAY_NEXT_ICON_SIZE = 40;
 export const CHANNEL_LIST_THUMB_SIZE = 28;
 export const NOW_PLAYING_THUMB_SIZE = 128;
 
-export const MAX_YOUTUBE_SEARCH_RESULTS = 30;
 export const MAX_RADIO_SEARCH_RESULTS = 30;
 
 export const SETTINGS_FILE_NAME = "channels.json";
@@ -22,10 +21,18 @@ export const RADIO_BROWSER_USER_AGENT = "RadioKayraReloaded/1.0 (+https://github
 export const RADIO_BROWSER_ORDER_OPTIONS = ["votes", "clickcount", "name", "random"];
 export const RADIO_BROWSER_DEFAULT_ORDER = "votes";
 export const CHANNEL_SOURCE_RADIOBROWSER = "radiobrowser";
-export const CHANNEL_SOURCE_YOUTUBE = "youtube";
 export const CHANNEL_SOURCE_MANUAL = "manual";
-export const CHANNEL_SOURCE_PODCASTINDEX = "podcastindex"; //Reserved: podcast integration lands in a later phase.
+export const CHANNEL_SOURCE_PODCASTINDEX = "podcastindex";
 export const VOLUME_POWER = 2;
+
+export const PODCASTINDEX_API_BASE = "https://api.podcastindex.org/api/1.0";
+export const PODCASTINDEX_USER_AGENT = "RadioKayraReloaded/1.0";
+export const PODCASTINDEX_SIGNUP_URL = "https://api.podcastindex.org/signup";
+export const PODCASTINDEX_SECRET_SCHEMA_ID = "org.gnome.shell.extensions.radiokayra-reloaded";
+export const PODCASTINDEX_SECRET_ATTR_KEY = "podcastindex-key";
+export const PODCASTINDEX_SECRET_ATTR_SECRET = "podcastindex-secret";
+export const MAX_PODCAST_SEARCH_RESULTS = 20;
+export const MAX_PODCAST_EPISODE_RESULTS = 30;
 
 export const SCHEMA_CHANNELS_CHANGE_EVENT = "channelschangedevent";
 export const SCHEMA_LAST_PLAYED = "lastplayed";
@@ -63,7 +70,7 @@ export const ICON_ADD_CHANNEL = "list-add-symbolic";
 export const ICON_MOVE_DOWN = "go-down-symbolic";
 export const ICON_MOVE_UP = "go-up-symbolic";
 export const ICON_RADIO_SEARCH_PAGE = "radio-symbolic";
-export const ICON_YOUTUBE_SEARCH_PAGE = "multimedia-video-player-symbolic";
+export const ICON_PODCAST_SEARCH_PAGE = "podcast-symbolic";
 export const ICON_BUTTON_SEARCH_ADD = "list-add-symbolic";
 export const ICON_SETTINGS = "emblem-system-symbolic";
 export const ICON_STATIONS_PAGE = "playlist-symbolic";
@@ -83,12 +90,10 @@ export const LOG_FAILED_TO_CREATE_CONFIG_FOLDER = "Failed to create config folde
 export const LOG_PREFIX_EXTENSION = "Extension";
 export const LOG_INFO_CHANNELS_JSON_CHANGED = "Channels json changed.";
 export const LOG_INFO_CHANNEL_CHANGED = "Channels json changed.";
-export const LOG_INFO_PROCESSED_URL_SUCCESS = "Url process success.";
 export const LOG_INFO_NEXT_CHANNEL = "Next Channel";
 export const LOG_INFO_PREVIOUS_CHANNEL = "Previous Channel";
 export const LOG_INFO_CHANNEL_NAVIGATE = "Channel Navigate";
 export const LOG_PLAYER_ERROR = "Player error.";
-export const LOG_PROCESSED_URL_ERROR = "Processed url error.";
 
 export const LOG_PREFIX_POPUPS = "Popups";
 export const LOG_SHOW_THUMBNAIL_ERROR = "Show Thumbnail error.";
@@ -112,11 +117,3 @@ export const LOG_ERROR_LOAD_THUMBNAIL = "Load thumbnail error.";
 export const LOG_ERROR_SAVE_THUMBNAIL = "Save thumbnail error.";
 export const LOG_ERROR_JSON_EMPTY = "Json empty!";
 
-export const LOG_PREFIX_YOUTUBE_SEARCH = "Youtube search";
-export const LOG_ERROR_CREATE_SEARCH_RESULTS = "Create search results exception.";
-export const LOG_ERROR_CALLBACK_RESULTS = "Create search results exception.";
-
-export const LOG_PREFIX_YOUTUBE_HANDLER = "Youtube handler";
-export const LOG_ERROR_GET_SHORTJSON = "Get short json error.";
-export const LOG_ERROR_GET_FULL_JSON = "Get full json error.";
-export const LOG_ERROR_SEARCH_YOUTUBE = "Search youtube error.";
