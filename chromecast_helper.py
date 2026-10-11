@@ -39,6 +39,13 @@ _discovered = {}  # uuid -> CastInfo (not yet connected — see discover())
 _current = None
 _zconf = None  # shared zeroconf instance, reused so connecting a chosen
                # device doesn't need its own fresh mDNS warm-up
+_browser = None  # kept running for the life of this process — CastBrowser.
+                 # stop_discovery() closes the whole Zeroconf instance, not
+                 # just the browser (confirmed live: calling it broke both
+                 # the next discover() and the connect in cast() with
+                 # "Zeroconf instance loop must be running" / "The event
+                 # loop is not running"). So it's just never stopped until
+                 # this process exits.
 #pychromecast's own `timeout=` arguments have been observed (on a
 #link-local-only interface, no real LAN) to not reliably bound how long a
 #blocking call takes — a hang in discover()/cast() must never be able to
@@ -66,6 +73,16 @@ class _StatusListener:
         emit({"event": "media_status", "state": state, "title": status.title})
 
 
+def _ensure_browser():
+    global _browser, _zconf
+    if _browser is not None:
+        return
+    _zconf = zeroconf_module.Zeroconf()
+    _browser = pychromecast.discovery.CastBrowser(
+        pychromecast.discovery.SimpleCastListener(), _zconf)
+    _browser.start_discovery()
+
+
 #Pure mDNS discovery — lists what's on the network without connecting to
 #any of it. pychromecast.get_chromecasts() (the old approach here) instead
 #connects to *every* discovered device just to list them, which is the
@@ -74,7 +91,7 @@ class _StatusListener:
 #devices even though both were there. Connecting only happens later, in
 #cast(), for the one device actually chosen.
 def discover():
-    global _discover_generation, _discover_done_emitted, _zconf
+    global _discover_generation, _discover_done_emitted
     _discover_generation += 1
     gen = _discover_generation
     _discover_done_emitted = False
@@ -86,18 +103,12 @@ def discover():
             emit({"event": "discover_done"})
 
     def run():
-        global _zconf
         try:
-            if _zconf is None:
-                _zconf = zeroconf_module.Zeroconf()
-            browser = pychromecast.discovery.CastBrowser(
-                pychromecast.discovery.SimpleCastListener(), _zconf)
-            browser.start_discovery()
-            threading.Event().wait(8)  # let mDNS responses accumulate
-            browser.stop_discovery()
+            _ensure_browser()
+            threading.Event().wait(8)  # let mDNS responses accumulate/refresh
             if gen != _discover_generation:
                 return
-            for uuid, info in browser.devices.items():
+            for uuid, info in _browser.devices.items():
                 _discovered[str(uuid)] = info
                 emit({"event": "device", "uuid": str(uuid), "name": info.friendly_name, "model": info.model_name})
         except Exception as e:
@@ -200,6 +211,11 @@ def main():
     try:
         if _current:
             _current.disconnect()
+    except Exception:
+        pass
+    try:
+        if _browser:
+            _browser.stop_discovery()
     except Exception:
         pass
 
