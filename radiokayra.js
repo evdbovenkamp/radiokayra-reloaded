@@ -62,6 +62,11 @@ export const RadioPlayer = class RadioPlayer {
     if (!this.initialized) return;
     this.pipeline.set_state(Gst.State.NULL);
     this.playing = false;
+    //NULL fully tears down the pipeline — the next PLAYING transition starts
+    //the stream over from position 0, whether that's via changeChannel() or
+    //a bare play() on the same still-loaded source. Either way it needs a
+    //fresh ASYNC_DONE/onReadyToSeek to re-apply the saved resume position.
+    this._readyToSeekFired = false;
   }
   setVolume(newValue) {
     this.volume = Math.pow(newValue, Constants.VOLUME_POWER);
