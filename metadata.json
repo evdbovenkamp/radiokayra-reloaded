@@ -4,6 +4,6 @@
   "description": "A tray radio extension to listen, search and manage radio stations and podcasts. Searches 50000+ radio stations via radio-browser.info and podcasts via podcastindex.org. IMPORTANT: Requires installation of GStreamer.",
   "shell-version": ["46", "47", "48", "49", "50"],
   "settings-schema": "org.gnome.shell.extensions.radiokayra-reloaded",
-  "url": "https://github.com/ayhanavci/radiokayra",
+  "url": "https://github.com/evdbovenkamp/radiokayra-reloaded",
   "gettext-domain": "radiokayra-reloaded@europetrader.gmail.com"
 }
