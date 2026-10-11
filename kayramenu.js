@@ -445,20 +445,28 @@ export const RadiokayraMenuButton = GObject.registerClass(
             Positions.clearPosition(info.id, syncFolder);
         }
         onPlayerError(type, message) { console.warn(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_PLAYER_ERROR} [${type}] [${message}]`); }
+        //Some stations/podcast CDNs resend the exact same TAG message
+        //continuously (observed: hundreds of times in a row with an
+        //unchanging placeholder title). Every downstream step here — label
+        //text updates, tooltip text layout, a notification — costs real time
+        //on gnome-shell's single UI thread; at a high enough repeat rate that
+        //alone can make the whole desktop feel frozen, not just this
+        //extension. So bail out immediately, before doing *any* work, unless
+        //the content actually changed since the last message.
         onPlayerTagChanged(artist, title) {
+            let key = `${artist}\u0000${title}`;
+            if (key === radiokayraPanel._lastTagKey) return;
+            radiokayraPanel._lastTagKey = key;
+
             radiokayraPanel._streamInfoPopup.onNewTag(artist, title);
             radiokayraPanel.updateToolTip();
             radiokayraPanel.notifyNewTrack(artist, title);
         }
-        //Pops a desktop notification when the station reports a genuinely new
-        //track (not just the same tag message firing again), if enabled.
+        //Desktop notification, if enabled — onPlayerTagChanged above already
+        //guarantees this only runs once per genuinely new tag.
         notifyNewTrack(artist, title) {
             if (!radiokayraPanel._settings.get_boolean(Constants.SCHEMA_SONG_NOTIFICATION)) return;
             if (Utils.isEmptyString(artist) && Utils.isEmptyString(title)) return;
-
-            let key = `${artist}\u0000${title}`;
-            if (key === radiokayraPanel._lastNotifiedTrackKey) return;
-            radiokayraPanel._lastNotifiedTrackKey = key;
 
             let channelName = radiokayraPanel._activeChannel?._channelInfo?.getName() ?? "";
             let body = [artist, title].filter(part => !Utils.isEmptyString(part)).join(" – ");
@@ -622,7 +630,7 @@ export const RadiokayraMenuButton = GObject.registerClass(
         stateLoadingChannel() {
             radiokayraPanel._streamInfoPopup.stateLoading();
             radiokayraPanel._controlsPopup.stateLoading();
-            radiokayraPanel._lastNotifiedTrackKey = null;
+            radiokayraPanel._lastTagKey = null;
             console.info("Playing Link:[" + radiokayraPanel._activeChannel._channelInfo.getUri() + "]");
             radiokayraPanel._settings.set_string(
                 Constants.SCHEMA_LAST_PLAYED,
