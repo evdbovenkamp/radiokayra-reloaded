@@ -253,9 +253,9 @@ export const StationsPageHandler = class StationsPageHandler {
     }
     moveDownChannel(row) {
         let id = row.name;
-        if (this._rows[this._rows.length - 1].name === id) 
+        if (this._rows[this._rows.length - 1].name === id)
             return;  //This was the last row. Nothing to do
-        
+
         for (let index = 0; index < this._channels.length - 1; ++index) {
             let channelData = this._channels[index];
             if (channelData.id === id) {
@@ -266,27 +266,21 @@ export const StationsPageHandler = class StationsPageHandler {
                 break;
             }
         }
-        
-        for (let index = 0; index < this._rows.length - 1; ++index) {
-            let curRow = this._rows[index];
-            if (curRow.name === id) {
-                this.swapChannels(index, index + 1);
-                break;
-            }
-
-        }
+        //A full rebuild, not a partial per-widget property swap — the old
+        //swapChannels() only swapped name/title between two row widgets,
+        //leaving subtitle/thumbnail/button state mismatched with the new
+        //name after a move.
+        this.refreshChannelList();
     }
-    
-    moveUpChannel(row) {        
+
+    moveUpChannel(row) {
         let id = row.name;
-        console.error(`NEW CHANGES. MOVEUP ROW:[${row}] ID:[${id}]`);
-        if (this._rows[0].name === id) 
+        if (this._rows[0].name === id)
             return;  //This was the first row. Nothing to do
 
         for (let index = 1; index < this._channels.length; ++index) {
             let channelData = this._channels[index];
             if (channelData.id === id) {
-                console.error(`NEW CHANGES. MOVEUP FOUND ROW ID:[${id}]`);
                 let tempOrder = this._channels[index].order;
                 this._channels[index].order = this._channels[index - 1].order;
                 this._channels[index - 1].order = tempOrder;
@@ -295,24 +289,7 @@ export const StationsPageHandler = class StationsPageHandler {
             }
         }
 
-        for (let index = 1; index < this._rows.length; ++index) {
-            let curRow = this._rows[index];
-            if (curRow.name === id) {                
-                this.swapChannels(index, index - 1);
-                break;
-            }
-
-        }
-    }
-    swapChannels(index1, index2) {
-        let tempId = this._rows[index1].name;
-        let tempTitle = this._rows[index1].title;
-
-        this._rows[index1].name = this._rows[index2].name;
-        this._rows[index1].title = this._rows[index2].title;
-
-        this._rows[index2].name = tempId;
-        this._rows[index2].title = tempTitle;
+        this.refreshChannelList();
     }
 
     //Browsing episodes can't play anything here (prefs runs in its own process,
