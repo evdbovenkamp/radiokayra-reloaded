@@ -72,10 +72,19 @@ export const SyncManager = class SyncManager {
 
         this._mtimeOf(bundleFile, (remoteMtime) => {
             this._mtimeOf(localFile, (localMtime) => {
-                if (remoteMtime === null) { this.push(callback); return; } //first sync ever
+                if (remoteMtime === null) { this.push(callback); return; } //nothing out there yet; bootstrap it
 
                 let lastRemote = this._settings.get_int64(Constants.SCHEMA_SYNC_LAST_REMOTE_MTIME);
                 let lastLocal = this._settings.get_int64(Constants.SCHEMA_SYNC_LAST_LOCAL_MTIME);
+
+                //This machine has never completed a sync before (both trackers at their
+                //default of 0): a brand-new/untouched local channels.json's own mtime is
+                //just "when that file was created", not a meaningful edit, and comparing
+                //it against the remote's real mtime could wrongly look "newer" and push
+                //an empty list over an existing synced library. Always prefer the
+                //already-synced remote in that specific case.
+                if (lastRemote === 0 && lastLocal === 0) { this.pull(callback); return; }
+
                 let remoteChanged = remoteMtime > lastRemote;
                 let localChanged = localMtime !== null && localMtime > lastLocal;
 
