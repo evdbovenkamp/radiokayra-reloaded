@@ -50,6 +50,8 @@ cd radiokayra-reloaded
 ./install.sh
 ```
 
+`install.sh` does not copy the extension: it creates a symlink from `~/.local/share/gnome-shell/extensions/radiokayra-reloaded@europetrader.gmail.com` to the folder you cloned into. **Keep that folder where it is** — moving or deleting it breaks the extension. If something already exists at the extension path, the script asks before replacing it, so run it from an interactive terminal.
+
 Then log out and log back in — GNOME Shell only loads newly-installed extensions on login — and enable it:
 
 ```bash
@@ -57,6 +59,8 @@ gnome-extensions enable radiokayra-reloaded@europetrader.gmail.com
 ```
 
 (Or use the GNOME Extensions app / GNOME Tweaks.)
+
+Run the `enable` command *after* logging back in. Before that (especially on Wayland, where GNOME Shell can't be restarted in place) `gnome-extensions` reports `Extension "radiokayra-reloaded@europetrader.gmail.com" doesn't exist` — that's expected, not a failed install.
 
 ### Manual install
 
@@ -66,15 +70,17 @@ git clone https://github.com/evdbovenkamp/radiokayra-reloaded.git \
 glib-compile-schemas ~/.local/share/gnome-shell/extensions/radiokayra-reloaded@europetrader.gmail.com/schemas/
 ```
 
-Then log out/in and enable it as above.
+Here the clone itself *is* the extension folder, no symlink involved. Then log out/in and enable it as above.
 
 ### GStreamer plugins
 
-Most distros split GStreamer into several packages. On Ubuntu/Debian:
+Most distros split GStreamer into several packages, and many desktop installs already have them. `install.sh` checks for GStreamer and tells you if it's missing. On Ubuntu/Debian:
 
 ```bash
 sudo apt install gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
 ```
+
+On other distros, install the equivalent "good", "bad" and "ugly" plugin sets plus the libav/FFmpeg plugin — e.g. on Arch: `gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav`. This extension was built and tested on Ubuntu (GNOME Shell 50); other distros should work but are untested.
 
 ### Casting (optional)
 
@@ -84,9 +90,15 @@ sudo apt install python3-pychromecast
 
 ### Podcasts (optional)
 
-Get a free API key at [api.podcastindex.org/signup](https://api.podcastindex.org/signup), then enter it in the extension's Settings page. It's stored in your system keyring, never in a plain file.
+1. Sign up at [api.podcastindex.org/signup](https://api.podcastindex.org/signup). You'll receive two values by e-mail: an **API Key** and an **API Secret** — you need both.
+2. Open the extension's Settings: click the radio icon in the top panel and choose **Settings**, or run `gnome-extensions prefs radiokayra-reloaded@europetrader.gmail.com`, or use the Extensions app.
+3. In the **PodcastIndex.org** section, fill in **API Key** and **API Secret** and click **Save**. The fields clear after saving and the **Status** row shows whether the credentials are configured.
+
+The credentials are stored in your system keyring (libsecret), never in a plain file.
 
 ## Updating
+
+Run this from the folder you cloned into. With the quick install that's your clone (e.g. `~/radiokayra-reloaded`); with the manual install it's the extension folder itself. The extension path below works for both, since with the quick install it's a symlink to your clone:
 
 ```bash
 cd ~/.local/share/gnome-shell/extensions/radiokayra-reloaded@europetrader.gmail.com
