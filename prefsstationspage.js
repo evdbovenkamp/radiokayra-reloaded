@@ -31,6 +31,16 @@ export const StationsPageHandler = class StationsPageHandler {
 
         const row = new Adw.ActionRow();
         row.title = _("Radio Channels");
+
+        const sortButton = new Gtk.MenuButton({
+            valign: Gtk.Align.CENTER,
+            icon_name: Constants.ICON_SORT_CHANNELS,
+            tooltip_text: _("Sort channels"),
+        });
+        sortButton.get_style_context().add_class("circular");
+        sortButton.set_popover(this.buildSortPopover());
+        row.add_suffix(sortButton);
+
         const addNewButton = new Gtk.Button({
             valign: Gtk.Align.CENTER,
             icon_name: Constants.ICON_ADD_CHANNEL,
@@ -44,6 +54,51 @@ export const StationsPageHandler = class StationsPageHandler {
         this._stationsPage.add(this._channelGroup);
     }
 
+    //Quick bulk re-sorts, on top of the existing up/down buttons for fine
+    //manual tweaks afterward — reordering a long list one swap at a time
+    //otherwise took forever.
+    buildSortPopover() {
+        let box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 2, margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6 });
+
+        let popover = new Gtk.Popover({ child: box });
+
+        let byNameButton = new Gtk.Button({ label: _("Sort by name (A-Z)"), has_frame: false });
+        byNameButton.connect("clicked", () => { popover.popdown(); this.sortChannelsByName(); });
+        box.append(byNameButton);
+
+        let byTypeButton = new Gtk.Button({ label: _("Sort by type (Radio / Podcast)"), has_frame: false });
+        byTypeButton.connect("clicked", () => { popover.popdown(); this.sortChannelsByType(); });
+        box.append(byTypeButton);
+
+        return popover;
+    }
+    sortChannelsByName() {
+        this._channels.sort((a, b) => a.name.localeCompare(b.name));
+        this.persistSortOrder();
+    }
+    sortChannelsByType() {
+        let typeRank = (channelData) => {
+            if (channelData.source === Constants.CHANNEL_SOURCE_RADIOBROWSER) return 0;
+            if (channelData.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) return 1;
+            return 2; //manually-added direct links
+        };
+        this._channels.sort((a, b) => typeRank(a) - typeRank(b) || a.name.localeCompare(b.name));
+        this.persistSortOrder();
+    }
+    //Assigns fresh sequential order values to _channels in its *current*
+    //array order (unlike writeChannels(), which re-sorts by the existing
+    //order field first — exactly what a bulk sort above needs to not undo).
+    persistSortOrder() {
+        for (let index = 0; index < this._channels.length; ++index) this._channels[index].order = index;
+        this._channelsReadWrite.writeChannelsFile(this._channels);
+        this._kayraPrefs._channelsChanged = true;
+        this.refreshChannelList();
+    }
+    refreshChannelList() {
+        this._rows.forEach(row => this._channelGroup.remove(row));
+        this._rows = [];
+        this.populateChannels();
+    }
     populateChannels() {
         this._channelsReadWrite = new Channels.ChannelsReadWrite(this._kayraPrefs.path);
         this._channels = this._channelsReadWrite.getChannels();

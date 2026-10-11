@@ -113,6 +113,7 @@ export const ICON_SETTINGS = "emblem-system-symbolic";
 export const ICON_STATIONS_PAGE = "playlist-symbolic";
 export const ICON_DELETE_CHANNEL = "user-trash-symbolic";
 export const ICON_EDIT_CHANNEL = "document-edit-symbolic";
+export const ICON_SORT_CHANNELS = "view-sort-descending-symbolic";
 export const ICON_ABOUT = "help-about-symbolic";
 
 export const LOG_PREFIX_UTILS = "Utils";
