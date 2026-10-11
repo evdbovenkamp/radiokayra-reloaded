@@ -15,12 +15,30 @@ import * as PopStreamInfo from "./popstreaminfo.js";
 import * as PopVolumeControl from "./popvolumecontrol.js";
 import * as Channels from "./channels.js";
 import * as Constants from "./constants.js";
-import * as RadioKayra from "./radiokayra.js";
 import * as KayraSearchProvider from "./searchProvider.js";
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 let radiokayraPanel;
+
+//Used in place of RadioKayra.RadioPlayer when GStreamer isn't installed, so
+//every other part of the panel (volume slider, controls, stream info) can
+//keep calling the same player interface without needing its own null-checks.
+//extension.js already shows a clear notification about this once at enable()
+//time, so these methods just no-op rather than notifying again on every click.
+const NullRadioPlayer = class NullRadioPlayer {
+  isSourceReady() { return false; }
+  changeChannel(_uri) { }
+  play() { }
+  stop() { }
+  setVolume(_value) { }
+  disconnectSourceBus() { }
+  isPlaying() { return false; }
+  setOnError(_cb) { }
+  setOnStreamStarted(_cb) { }
+  setOnStreamEnded(_cb) { }
+  setOnTagChanged(_cb) { }
+};
 
 export const RadiokayraMenuButton = GObject.registerClass(
     {
@@ -75,20 +93,30 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this._kayraExtension.openPreferences();
         }
         
-        _init(extension) {       
-            super._init(0.0, "RadiokayraMenuButton");            
+        _init(extension, gstAvailable) {
+            super._init(0.0, "RadiokayraMenuButton");
             radiokayraPanel = this;
             this._shellVersion = this.getShellversion();
             //console.log("SHELL VERSION:" + this._shellVersion);
             this._kayraExtension = extension;
             this._settings = extension.getSettings();
             this._path = extension.path;
-            this._activeChannel = null;                        
-            
+            this._activeChannel = null;
+
             let volume = this._settings.get_double(Constants.SCHEMA_VOLUME_LEVEL);
-            
-            this._player = new RadioKayra.RadioPlayer(volume);
-            
+
+            //Always start with a safe no-op player so nothing else here needs
+            //its own null-checks; swapped for the real one below if possible.
+            this._player = new NullRadioPlayer();
+            if (gstAvailable) {
+                import("./radiokayra.js").then(RadioKayra => {
+                    this._player = new RadioKayra.RadioPlayer(volume);
+                    this.initRadioCallbacks();
+                }).catch(e => {
+                    console.error(`${Constants.LOG_PREFIX_EXTENSION} Failed to load radiokayra.js: [${e}]`);
+                });
+            }
+
             //REFRESH CHANNELS EVENT
             this._settings_changed_handler = this._settings.connect("changed::" + Constants.SCHEMA_CHANNELS_CHANGE_EVENT, () => {
                 console.info(`EXT: ${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNELS_JSON_CHANGED}`);
