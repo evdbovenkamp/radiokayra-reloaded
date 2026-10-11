@@ -109,52 +109,85 @@ function searchRecording(artist, title, callback) {
     });
 }
 
-//Among a recording's releases, prefer an official "Album" release-group
-//with the earliest date — more likely the canonical original than some
-//random compilation that happens to include the track.
-function pickBestRelease(recording) {
-    const releases = recording?.releases ?? [];
-    if (releases.length === 0) return null;
+//A single MusicBrainz recording often lists several releases (studio
+//album, a dozen compilations, reissues, ...) and only some of them have
+//cover art archived. Flattens every release across every confidently-
+//matched recording into a deduped candidate list — Album-type releases
+//first, earliest date first, since that's most likely to be the
+//canonical release, but every release is still a fallback candidate
+//(observed live: the "best" pick had no art while several compilation
+//releases of the exact same recording did).
+function buildCandidateUrls(recordings) {
+    const releases = [];
+    for (const recording of recordings) {
+        for (const release of recording.releases ?? []) releases.push(release);
+    }
     const albums = releases.filter(r => r["release-group"]?.["primary-type"] === "Album");
-    const pool = albums.length > 0 ? albums : releases;
-    return pool.slice().sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"))[0];
+    const pool = (albums.length > 0 ? albums : releases)
+        .slice()
+        .sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+
+    const seenReleaseGroups = new Set();
+    const seenReleases = new Set();
+    const candidates = [];
+    for (const release of pool) {
+        if (candidates.length >= Constants.COVERART_MAX_CANDIDATES) break;
+        const rgId = release["release-group"]?.id;
+        if (rgId && !seenReleaseGroups.has(rgId)) {
+            seenReleaseGroups.add(rgId);
+            candidates.push(`https://coverartarchive.org/release-group/${rgId}/front-250`);
+        }
+        if (!seenReleases.has(release.id)) {
+            seenReleases.add(release.id);
+            candidates.push(`https://coverartarchive.org/release/${release.id}/front-250`);
+        }
+    }
+    return candidates;
+}
+
+//Many ICY radio streams never send a separate "artist" tag at all — the
+//whole "Artist - Title" string arrives as the title tag alone. Split that
+//out rather than giving up, since an empty artist otherwise makes every
+//search on these stations fail silently.
+function resolveArtistTitle(artist, title) {
+    if (!Utils.isEmptyString(artist) || Utils.isEmptyString(title)) return [artist, title];
+    const parts = title.split(/\s+-\s+/);
+    if (parts.length >= 2) return [parts[0], parts.slice(1).join(" - ")];
+    return [artist, title];
 }
 
 //callback(GLib.Bytes|null) — image bytes for the cover art, or null if none
 //is available / confidently matched. Never calls back with a transient
 //failure cached as "no art" — a retry later in the session can still succeed.
-export function lookupCoverArt(artist, title, callback) {
+export function lookupCoverArt(rawArtist, rawTitle, callback) {
+    const [artist, title] = resolveArtistTitle(rawArtist, rawTitle);
     if (Utils.isEmptyString(artist) || Utils.isEmptyString(title)) { callback(null); return; }
     const key = `${artist}\u0000${title}`;
     if (cache.has(key)) { callback(cache.get(key)); return; }
 
     enqueue((done) => {
         searchRecording(artist, title, (recordings) => {
-            const best = (recordings ?? [])[0];
-            if (!best || (best.score ?? 0) < Constants.MUSICBRAINZ_MIN_SCORE) {
-                cacheSet(key, null);
-                callback(null);
-                done();
-                return;
-            }
-            const release = pickBestRelease(best);
-            if (!release) {
+            const matches = (recordings ?? []).filter(r => (r.score ?? 0) >= Constants.MUSICBRAINZ_MIN_SCORE);
+            const candidates = buildCandidateUrls(matches);
+            if (candidates.length === 0) {
                 cacheSet(key, null);
                 callback(null);
                 done();
                 return;
             }
 
-            const candidates = [];
-            if (release["release-group"]?.id) candidates.push(`https://coverartarchive.org/release-group/${release["release-group"].id}/front-250`);
-            candidates.push(`https://coverartarchive.org/release/${release.id}/front-250`);
-
+            let hadTransientFailure = false;
             const tryNext = (index) => {
-                if (index >= candidates.length) { cacheSet(key, null); callback(null); done(); return; }
+                if (index >= candidates.length) {
+                    if (!hadTransientFailure) cacheSet(key, null);
+                    callback(null);
+                    done();
+                    return;
+                }
                 httpGetImage(candidates[index], (status, bytes) => {
-                    if (bytes) { cacheSet(key, bytes); callback(bytes); done(); }
-                    else if (status === 404) { tryNext(index + 1); }
-                    else { callback(null); done(); } //transient failure — not cached
+                    if (bytes) { cacheSet(key, bytes); callback(bytes); done(); return; }
+                    if (status !== 404) hadTransientFailure = true; //keep trying other releases, but don't negative-cache this track
+                    tryNext(index + 1);
                 });
             };
             tryNext(0);

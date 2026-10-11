@@ -37,6 +37,7 @@ export const PODCASTINDEX_API_BASE = "https://api.podcastindex.org/api/1.0";
 export const MUSICBRAINZ_USER_AGENT = "RadioKayraReloaded/1.0 (+https://github.com/ayhanavci/radiokayra)";
 export const MUSICBRAINZ_MIN_INTERVAL_MS = 1100; //MusicBrainz asks for ~1 req/sec per client
 export const MUSICBRAINZ_MIN_SCORE = 85; //minimum match confidence before trusting a search result
+export const COVERART_MAX_CANDIDATES = 8; //cap how many releases we probe before giving up on a track
 export const COVERART_CACHE_MAX_ENTRIES = 200;
 export const PODCASTINDEX_USER_AGENT = "RadioKayraReloaded/1.0";
 export const PODCASTINDEX_SIGNUP_URL = "https://api.podcastindex.org/signup";
