@@ -4,6 +4,8 @@ A GNOME Shell extension to search, play and manage internet radio stations and p
 
 This is an independent fork of [**Radio Kayra**](https://github.com/ayhanavci/radiokayra) by **Ayhan Avcı**. The original project is the reason this exists at all — a clean, simple, well-organized radio extension for GNOME. This fork started because the original had gone quiet for a while and there were specific directions (podcasts, sync, casting) worth pushing further. If you're looking for the original, lighter-weight extension, go there first and give it a star.
 
+This fork's design, code and features were built entirely in collaboration with [Claude](https://claude.com/claude-code) (Anthropic's AI coding assistant) — from architecture decisions down to live debugging against real hardware (actual Chromecast devices, real radio-browser.info/PodcastIndex.org APIs).
+
 ## What's different from the original Radio Kayra
 
 | | Original Radio Kayra | Radio Kayra Reloaded |

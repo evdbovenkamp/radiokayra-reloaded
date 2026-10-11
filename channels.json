@@ -1,30 +1,30 @@
 [
   {
-    "id": "bfaea783-5d7b-4ef5-9e79-c8a61fa8f67e",
-    "name": "lofi hip hop radio 📚 beats to relax/study to",
+    "id": "f3b1c9a2-6e4d-4a3b-9c1e-1a2b3c4d5e6f",
+    "name": "NPO Radio 2",
     "order": 0,
-    "useYtdlp": true,
-    "uri": "https://www.youtube.com/watch?v=jfKfPfyJRdk"
+    "uri": "http://icecast.omroep.nl/radio2-bb-mp3",
+    "source": "manual"
   },
   {
-      "id": "8e7cd4cb-1170-4727-98a9-25d60f57e50f",
-      "name": "Chopin - Nocturne op.9 No.2",
-      "order": 1,
-      "useYtdlp": true,
-      "uri": "https://www.youtube.com/watch?v=9E6b3swbnWg"
+    "id": "a7d2e8f1-9c3b-4e5a-8f2d-7b6c5d4e3f2a",
+    "name": "NPO 3FM",
+    "order": 1,
+    "uri": "https://icecast.omroep.nl/3fm-bb-mp3",
+    "source": "manual"
   },
   {
-      "id": "68b8c1cb-c5ab-4a1f-b673-71fe62c8375b",
-      "name": "The Best of Mozart",
-      "order": 2,
-      "useYtdlp": true,
-      "uri": "https://www.youtube.com/watch?v=Rb0UmrCXxVA"
+    "id": "c4e9f2a3-5b1d-4c6e-9a3f-2d1e0f9c8b7a",
+    "name": "Smooth 80s",
+    "order": 2,
+    "uri": "https://media-ice.musicradio.com/Smooth80sMP3",
+    "source": "manual"
   },
   {
-      "id": "62ec69eb-29a3-4848-bd00-38b878b0a2fc",
-      "name": "asian lofi radio ⛩️ beats to relax/study to",
-      "order": 3,
-      "useYtdlp": true,
-      "uri": "https://www.youtube.com/watch?v=Na0w3Mz46GA"
+    "id": "e1a5b7c3-8d2f-4e9a-b6c4-3f2e1d0c9b8a",
+    "name": "SRF 3",
+    "order": 3,
+    "uri": "https://stream.srg-ssr.ch/m/drs3/mp3_128",
+    "source": "manual"
   }
 ]

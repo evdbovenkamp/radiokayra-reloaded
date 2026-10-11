@@ -25,7 +25,7 @@ export const AboutPageHandler = class AboutPageHandler {
 
         this.about = new Adw.PreferencesGroup({
             title: "Radio Kayra Reloaded",
-            description: _("Maintained by Erwin van den Bovenkamp.\nMiddle-click the radio icon to toggle play/stop. Don't forget to install GStreamer — links at the bottom. Enjoy!"),
+            description: _("Maintained by Erwin van den Bovenkamp, built together with Claude AI.\nMiddle-click the radio icon to toggle play/stop. Don't forget to install GStreamer — links at the bottom. Enjoy!"),
         });
 
         //A small Easter egg — double-click the radio for a thank-you note.
