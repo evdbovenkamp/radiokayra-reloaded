@@ -37,8 +37,17 @@ export const SettingsPageHandler = class SettingsPageHandler {
             subtitle: _("Shows the song, artist, station info when you hover on the radio icon")
         });
         this._schema.bind(Constants.SCHEMA_SONG_TOOLTIP, this._show_hover_tooltip, 'active', Gio.SettingsBindFlags.DEFAULT);
-        this._settingsGroup.add(this._show_hover_tooltip); 
+        this._settingsGroup.add(this._show_hover_tooltip);
         //HOVER
+
+        //TRACK NOTIFICATION
+        this._show_track_notification = new Adw.SwitchRow({
+            title: _("Show track notification"),
+            subtitle: _("Pops up a desktop notification with the artist and title when a new track starts.")
+        });
+        this._schema.bind(Constants.SCHEMA_SONG_NOTIFICATION, this._show_track_notification, 'active', Gio.SettingsBindFlags.DEFAULT);
+        this._settingsGroup.add(this._show_track_notification);
+        //TRACK NOTIFICATION
 
         //RIGHT CLICK SETTINGS
         this._right_click_settings = new Adw.SwitchRow({

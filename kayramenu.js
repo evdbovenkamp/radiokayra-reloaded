@@ -290,9 +290,24 @@ export const RadiokayraMenuButton = GObject.registerClass(
             radiokayraPanel.stateReady();
         }
         onPlayerError(type, message) { console.warn(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_PLAYER_ERROR} [${type}] [${message}]`); }
-        onPlayerTagChanged(artist, title) { 
-            radiokayraPanel._streamInfoPopup.onNewTag(artist, title); 
+        onPlayerTagChanged(artist, title) {
+            radiokayraPanel._streamInfoPopup.onNewTag(artist, title);
             radiokayraPanel.updateToolTip();
+            radiokayraPanel.notifyNewTrack(artist, title);
+        }
+        //Pops a desktop notification when the station reports a genuinely new
+        //track (not just the same tag message firing again), if enabled.
+        notifyNewTrack(artist, title) {
+            if (!radiokayraPanel._settings.get_boolean(Constants.SCHEMA_SONG_NOTIFICATION)) return;
+            if (Utils.isEmptyString(artist) && Utils.isEmptyString(title)) return;
+
+            let key = `${artist}\u0000${title}`;
+            if (key === radiokayraPanel._lastNotifiedTrackKey) return;
+            radiokayraPanel._lastNotifiedTrackKey = key;
+
+            let channelName = radiokayraPanel._activeChannel?._channelInfo?.getName() ?? "";
+            let body = [artist, title].filter(part => !Utils.isEmptyString(part)).join(" – ");
+            Main.notify(channelName, body);
         }
         onChannelChanged(channel) {
             if (radiokayraPanel._activeChannel === null) console.info(`${Constants.LOG_PREFIX_EXTENSION} ${Constants.LOG_INFO_CHANNEL_CHANGED}:[] -> [${channel._channelInfo.getId()}]`);
@@ -396,9 +411,10 @@ export const RadiokayraMenuButton = GObject.registerClass(
             radiokayraPanel._controlsPopup.stateReady();            
             radiokayraPanel._streamInfoPopup.resetTags();
         }
-        stateLoadingChannel() {                        
+        stateLoadingChannel() {
             radiokayraPanel._streamInfoPopup.stateLoading();
             radiokayraPanel._controlsPopup.stateLoading();
+            radiokayraPanel._lastNotifiedTrackKey = null;
             console.info("Playing Link:[" + radiokayraPanel._activeChannel._channelInfo.getUri() + "]");
             radiokayraPanel._settings.set_string(
                 Constants.SCHEMA_LAST_PLAYED,

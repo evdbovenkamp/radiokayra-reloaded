@@ -39,6 +39,7 @@ export const SCHEMA_LAST_PLAYED = "lastplayed";
 export const SCHEMA_VOLUME_LEVEL = "volumelevel";
 export const SCHEMA_PANEL_HEIGHT = "panelheight";
 export const SCHEMA_SONG_TOOLTIP = "showsongtooltip";
+export const SCHEMA_SONG_NOTIFICATION = "shownewtracknotification";
 export const SCHEMA_RIGHTCLICK_SETTINGS = "rightclicksettings";
 export const SCHEMA_RIGHTCLICK_COPYSONG = "rightclickcopysong";
 export const SCHEMA_GNOME_SEARCH = "gnomesearch";

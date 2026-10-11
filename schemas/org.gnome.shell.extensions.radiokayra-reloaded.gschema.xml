@@ -28,6 +28,13 @@
             If true, shows the song, artist, station info when hovered over the radio icon
         </description>
     </key>
+    <key name="shownewtracknotification" type="b">
+        <default>false</default>
+        <summary>Show a desktop notification on track change</summary>
+        <description>
+            If true, pops up a desktop notification with the artist and title whenever the station reports a new track.
+        </description>
+    </key>
     <key name="rightclicksettings" type="b">
         <default>true</default>
         <summary>Opens the settings on right click</summary>
