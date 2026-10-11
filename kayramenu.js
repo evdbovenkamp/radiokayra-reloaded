@@ -49,6 +49,36 @@ const NullRadioPlayer = class NullRadioPlayer {
   seekBy(_deltaSeconds) { }
 };
 
+//A stable facade over a swappable player implementation. VolumeControlPopup,
+//StreamInfoPopup etc. each capture `this._player` once, at construction time
+//— if we ever reassigned `this._player` to a new object later (e.g. once the
+//dynamic import of radiokayra.js resolves), every one of those captured
+//references would keep pointing at the discarded old object forever. Instead
+//we create exactly one PlayerProxy up front and only ever swap *its*
+//internal delegate, so every holder of "the player" transparently keeps
+//acting on whichever implementation is current.
+const PlayerProxy = class PlayerProxy {
+  constructor(delegate) { this._delegate = delegate; }
+  setDelegate(delegate) { this._delegate = delegate; }
+  isSourceReady() { return this._delegate.isSourceReady(); }
+  changeChannel(uri) { return this._delegate.changeChannel(uri); }
+  play() { return this._delegate.play(); }
+  stop() { return this._delegate.stop(); }
+  setVolume(value) { return this._delegate.setVolume(value); }
+  disconnectSourceBus() { return this._delegate.disconnectSourceBus(); }
+  isPlaying() { return this._delegate.isPlaying(); }
+  setOnError(cb) { return this._delegate.setOnError(cb); }
+  setOnStreamStarted(cb) { return this._delegate.setOnStreamStarted(cb); }
+  setOnStreamEnded(cb) { return this._delegate.setOnStreamEnded(cb); }
+  setOnTagChanged(cb) { return this._delegate.setOnTagChanged(cb); }
+  setOnReadyToSeek(cb) { return this._delegate.setOnReadyToSeek(cb); }
+  getPosition() { return this._delegate.getPosition(); }
+  getDuration() { return this._delegate.getDuration(); }
+  isSeekable() { return this._delegate.isSeekable(); }
+  seekTo(seconds) { return this._delegate.seekTo(seconds); }
+  seekBy(deltaSeconds) { return this._delegate.seekBy(deltaSeconds); }
+};
+
 export const RadiokayraMenuButton = GObject.registerClass(
     {
         GTypeName: "RadiokayraMenuButton",
@@ -117,12 +147,14 @@ export const RadiokayraMenuButton = GObject.registerClass(
 
             let volume = this._settings.get_double(Constants.SCHEMA_VOLUME_LEVEL);
 
-            //Always start with a safe no-op player so nothing else here needs
-            //its own null-checks; swapped for the real one below if possible.
-            this._player = new NullRadioPlayer();
+            //Always start with a safe no-op delegate so nothing else here needs
+            //its own null-checks; this._player itself is the stable PlayerProxy
+            //every widget below captures — only its delegate gets swapped once
+            //the real player loads, never this._player itself.
+            this._player = new PlayerProxy(new NullRadioPlayer());
             if (gstAvailable) {
                 import("./radiokayra.js").then(RadioKayra => {
-                    this._player = new RadioKayra.RadioPlayer(volume);
+                    this._player.setDelegate(new RadioKayra.RadioPlayer(volume));
                     this.initRadioCallbacks();
                 }).catch(e => {
                     console.error(`${Constants.LOG_PREFIX_EXTENSION} Failed to load radiokayra.js: [${e}]`);
@@ -387,8 +419,10 @@ export const RadiokayraMenuButton = GObject.registerClass(
             let position = radiokayraPanel._player.getPosition();
             let duration = radiokayraPanel._player.getDuration();
 
-            if (isPodcast && duration !== null) radiokayraPanel._seekControlsPopup.updateProgress(position, duration);
-            else radiokayraPanel._seekControlsPopup.hideForRadio();
+            if (isPodcast && duration !== null) {
+                radiokayraPanel._seekControlsPopup.showForEpisode();
+                radiokayraPanel._seekControlsPopup.updateProgress(position, duration);
+            } else radiokayraPanel._seekControlsPopup.hideForRadio();
 
             radiokayraPanel._positionTickCount++;
             if (isPodcast && position !== null && radiokayraPanel._positionTickCount % Constants.POSITION_SAVE_INTERVAL_SECONDS === 0)
