@@ -22,7 +22,6 @@ export const ChannelBox = GObject.registerClass(
             this._is_live = false;
             this._duration = 0;
 
-            this.addTypeIcon();
             this.addThumbnail();
             this._channelLabel = new St.Label({
                 style_class: Constants.CSS_CHANNEL_LIST_LABEL,
@@ -39,23 +38,6 @@ export const ChannelBox = GObject.registerClass(
 
             this.addNewEpisodeBadge();
             this.setOrnament(PopupMenu.Ornament.NONE);
-        }
-        //A small text badge so radio stations and podcasts are unambiguous at
-        //a glance in the list — a tiny symbolic icon turned out too easy to
-        //miss/misread, text doesn't have that problem. Manually-added
-        //direct-link channels show none — genuinely ambiguous what they are.
-        addTypeIcon() {
-            let label = null;
-            if (this._channelInfo.source === Constants.CHANNEL_SOURCE_PODCASTINDEX) label = _("PODCAST");
-            else if (this._channelInfo.source === Constants.CHANNEL_SOURCE_RADIOBROWSER) label = _("RADIO");
-            if (!label) return;
-
-            this._typeIcon = new St.Label({
-                style_class: Constants.CSS_TYPE_BADGE,
-                text: label,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-            this.add_child(this._typeIcon);
         }
         //A podcast feed shows a small "new" marker when the last episode we know
         //about (refreshed when the user browses episodes in preferences) differs
@@ -87,9 +69,6 @@ export const ChannelBox = GObject.registerClass(
         }
        
         clear() {
-            this._typeIcon?.destroy();
-            this._typeIcon = null;
-
             this._thumbnail?.destroy();
             this._thumbnail = null;
 

@@ -347,32 +347,47 @@ export const RadiokayraMenuButton = GObject.registerClass(
             this.stateReady();
             this.setTrayIconStopped();
         }
+        //Grouped under a labeled separator per type (podcasts, then radio —
+        //manual direct-link channels count as "radio" here, they're plain
+        //stream URLs same as a radio station) instead of a per-row badge.
+        //Erwin found the inline text badge unclear; an actual section split
+        //is unambiguous without adding visual noise to every row.
         addChannels() {
             let channelsReadWrite = new Channels.ChannelsReadWrite(radiokayraPanel._path);
             let channels = channelsReadWrite.getChannels();
+            channels.sort((a, b) => parseInt(a.order) - parseInt(b.order));
             let lastPlayedId = radiokayraPanel._settings.get_string(Constants.SCHEMA_LAST_PLAYED);
             this.channelBoxList = [];
 
-            for (let i = 0; i < channels.length; ++i) {
-                let channelData = channels[i];
-                let channelInfo = new Channels.ChannelInfo(
-                    channelData.id,
-                    channelData.name,
-                    channelData.uri,
-                    channelData.order,
-                    channelData
-                );
-                let channelBox = new ChannelBox.ChannelBox(channelInfo, this);
-                this.channelBoxList.push(channelBox);
-                this._addToChannelSection(channelBox);
-                if (!Utils.isEmptyString(lastPlayedId) &&
-                    lastPlayedId === channelInfo.getId()) {
-                    radiokayraPanel._activeChannel = channelBox;
-                    channelBox.setActive(true);
-                    this._streamInfoPopup.setChannelName(channelInfo.getName());
-                    this._streamInfoPopup.showThumbnail(channelBox);
-                }
-            }
+            let podcasts = channels.filter(c => c.source === Constants.CHANNEL_SOURCE_PODCASTINDEX);
+            let radios = channels.filter(c => c.source !== Constants.CHANNEL_SOURCE_PODCASTINDEX);
+
+            let addGroup = (groupChannels, headerText) => {
+                if (groupChannels.length === 0) return;
+                this._channelSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(headerText));
+                groupChannels.forEach((channelData) => {
+                    let channelInfo = new Channels.ChannelInfo(
+                        channelData.id,
+                        channelData.name,
+                        channelData.uri,
+                        channelData.order,
+                        channelData
+                    );
+                    let channelBox = new ChannelBox.ChannelBox(channelInfo, this);
+                    this.channelBoxList.push(channelBox);
+                    this._addToChannelSection(channelBox);
+                    if (!Utils.isEmptyString(lastPlayedId) &&
+                        lastPlayedId === channelInfo.getId()) {
+                        radiokayraPanel._activeChannel = channelBox;
+                        channelBox.setActive(true);
+                        this._streamInfoPopup.setChannelName(channelInfo.getName());
+                        this._streamInfoPopup.showThumbnail(channelBox);
+                    }
+                });
+            };
+
+            addGroup(podcasts, _("Podcasts"));
+            addGroup(radios, _("Radio"));
         }
         _addToChannelSection(channelBox) {            
             this._channelSection.addMenuItem(channelBox);

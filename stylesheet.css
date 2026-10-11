@@ -23,19 +23,6 @@
     padding: 1px 6px;
 }
 
-/* Neutral outline badge — distinguishes radio vs podcast without competing
-   for attention with the accent-colored "new episode" badge above. */
-.channel-list-type-badge {
-    font-size: 0.7em;
-    font-weight: bold;
-    text-transform: uppercase;
-    opacity: 0.6;
-    border: 1px solid;
-    border-radius: 99px;
-    padding: 1px 6px;
-    margin: 0 4px;
-}
-
 /* "Now playing" panel */
 .layout-box {
     min-width: 20em;
