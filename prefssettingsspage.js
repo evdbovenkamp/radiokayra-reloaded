@@ -5,6 +5,7 @@ import Gio from "gi://Gio";
 import * as Constants from "./constants.js";
 import * as PodcastIndex from "./podcastindex.js";
 import * as Utils from "./utils.js";
+import * as Sync from "./sync.js";
 
 import { ExtensionPreferences, gettext as _, } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
@@ -81,7 +82,60 @@ export const SettingsPageHandler = class SettingsPageHandler {
 
         this._settingsPage.add(this._settingsGroup);
 
+        this.createSyncGroup();
         this.createPodcastIndexGroup();
+      }
+      createSyncGroup() {
+        this._syncManager = this._kayraPrefs._syncManager;
+
+        this._syncGroup = new Adw.PreferencesGroup({
+            title: _("Sync"),
+            description: _("Keep stations and these settings in sync across computers, through a folder you choose (a local path, a Nextcloud/Dropbox folder, or an already-mounted WebDAV location). Pushes automatically when you close this window; checks for remote changes when you open it. PodcastIndex.org credentials are never included."),
+        });
+
+        this._syncFolderRow = new Adw.ActionRow({ title: _("Sync folder") });
+        let chooseButton = new Gtk.Button({ label: _("Choose…"), valign: Gtk.Align.CENTER });
+        chooseButton.connect("clicked", () => this.chooseSyncFolder());
+        this._syncFolderRow.add_suffix(chooseButton);
+        this._syncGroup.add(this._syncFolderRow);
+
+        this._syncStatusRow = new Adw.ActionRow({ title: _("Status") });
+        let syncNowButton = new Gtk.Button({ label: _("Sync now"), valign: Gtk.Align.CENTER });
+        syncNowButton.get_style_context().add_class("suggested-action");
+        syncNowButton.connect("clicked", () => this.runSync());
+        this._syncStatusRow.add_suffix(syncNowButton);
+        this._syncGroup.add(this._syncStatusRow);
+
+        this._settingsPage.add(this._syncGroup);
+        this.refreshSyncStatus();
+      }
+      chooseSyncFolder() {
+        let dialog = new Gtk.FileDialog({ title: _("Choose sync folder") });
+        dialog.select_folder(this._window, null, (source, result) => {
+            try {
+                let folder = source.select_folder_finish(result);
+                this._syncManager.setSyncFolder(folder.get_path());
+                this.refreshSyncStatus();
+                this.runSync();
+            } catch (e) { /* user cancelled */ }
+        });
+      }
+      runSync() {
+        this._syncStatusRow.subtitle = _("Syncing…");
+        this._syncManager.checkAndSync((status, error) => {
+            this.refreshSyncStatus();
+            if (status === Sync.Status.ERROR) console.warn(`${Constants.LOG_PREFIX_PREPS} Sync error: [${error}]`);
+        });
+      }
+      refreshSyncStatus() {
+        if (!this._syncStatusRow) return;
+        let folder = this._syncManager.getSyncFolder();
+        this._syncFolderRow.subtitle = folder ?? _("Not set");
+        if (!folder) { this._syncStatusRow.subtitle = _("Choose a folder to enable sync."); return; }
+        let lastAt = this._syncManager.getLastSyncedAt();
+        this._syncStatusRow.subtitle = lastAt
+            ? _("Last synced: %s").format(new Date(lastAt).toLocaleString())
+            : _("Not synced yet");
       }
       createPodcastIndexGroup() {
         this._podcastGroup = new Adw.PreferencesGroup({

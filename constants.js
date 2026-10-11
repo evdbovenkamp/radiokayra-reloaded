@@ -44,6 +44,19 @@ export const SCHEMA_RIGHTCLICK_COPYSONG = "rightclickcopysong";
 export const SCHEMA_GNOME_SEARCH = "gnomesearch";
 export const SCHEMA_PREFS_WINDOW_WIDTH = "prefswindowwidth";
 export const SCHEMA_PREFS_WINDOW_HEIGHT = "prefswindowheight";
+export const SCHEMA_SYNC_FOLDER = "syncfolder";
+export const SCHEMA_SYNC_LAST_AT = "synclastat";
+export const SCHEMA_SYNC_LAST_REMOTE_MTIME = "synclastremotemtime";
+export const SCHEMA_SYNC_LAST_LOCAL_MTIME = "synclastlocalmtime";
+
+export const SYNC_BUNDLE_FILENAME = "radio-kayra-sync.json";
+export const SYNC_BUNDLE_SCHEMA_VERSION = 1;
+//Settings that sync (device-agnostic preferences). Deliberately excludes
+//volumelevel, lastplayed, prefswindow*, and PodcastIndex credentials
+//(those stay in the system keyring, never in a synced file).
+export const SYNCED_SETTINGS_KEYS = [
+    "panelheight", "showsongtooltip", "rightclicksettings", "rightclickcopysong", "gnomesearch",
+];
 
 export const CSS_SETTINGS_POPUP = "settings-menu-item";
 export const CSS_CHANNEL_LIST_THUMBNAIL = "channel-list-item";

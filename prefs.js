@@ -1,6 +1,7 @@
 import Gio from "gi://Gio";
 
 import * as Utils from "./utils.js";
+import * as Sync from "./sync.js";
 import * as SearchPageHandler from "./prefssearch.js";
 import * as StationsPageHandler from "./prefsstationspage.js";
 import * as SettingsPageHandler from "./prefssettingsspage.js";
@@ -19,20 +20,19 @@ export default class RadioKayraPreferences extends ExtensionPreferences {
     this._window = window;
     this._channelsChanged = false;
 
-    //Remember the window size the user last resized it to.
     let settings = this.getSettings();
+
+    //Remember the window size the user last resized it to.
     settings.bind(Constants.SCHEMA_PREFS_WINDOW_WIDTH, window, "default-width", Gio.SettingsBindFlags.DEFAULT);
     settings.bind(Constants.SCHEMA_PREFS_WINDOW_HEIGHT, window, "default-height", Gio.SettingsBindFlags.DEFAULT);
 
-    //Stations
-    this._stationsPageHandler = new StationsPageHandler.StationsPageHandler(this);
-    this._stationsPageHandler.createPage();
+    this._syncManager = new Sync.SyncManager(this.path, settings);
 
     //Search (radio + podcasts)
     this._searchPageHandler = new SearchPageHandler.SearchPageHandler(this);
     this._searchPageHandler.createPage();
 
-    //Settings
+    //Settings (also owns the sync folder UI)
     this._settingsPageHandler = new SettingsPageHandler.SettingsPageHandler(this);
     this._settingsPageHandler.createPage();
 
@@ -40,19 +40,34 @@ export default class RadioKayraPreferences extends ExtensionPreferences {
     this._aboutPageHandler = new AboutPageHandler.AboutPageHandler(this);
     this._aboutPageHandler.createPage();
 
+    //Stations: wait for the opening sync check (pull if the remote changed)
+    //so the list shown is current. Resolves immediately if sync isn't set up.
+    this._syncManager.checkAndSync((status, error) => {
+      if (status === Sync.Status.ERROR) console.warn(`${Constants.LOG_PREFIX_PREPS} Sync check failed: [${error}]`);
+      this._stationsPageHandler = new StationsPageHandler.StationsPageHandler(this);
+      this._stationsPageHandler.createPage();
+    });
+
     window.connect("close-request", () => {
       if (this._channelsChanged) {
         let val = Utils.uuidv4();
         this.getSettings().set_string(Constants.SCHEMA_CHANNELS_CHANGE_EVENT, Utils.uuidv4(val));
       }
 
+      //Push unconditionally (not just when channels changed) so toggled
+      //settings sync too; push() itself no-ops if sync isn't configured.
+      this._syncManager.push((status, error) => {
+        if (status === Sync.Status.ERROR) console.warn(`${Constants.LOG_PREFIX_PREPS} Sync push failed: [${error}]`);
+      });
+
       this._searchPageHandler.clear();
-      this._stationsPageHandler.clear();
+      this._stationsPageHandler?.clear();
       this._settingsPageHandler.clear();
 
       this._searchPageHandler = null;
       this._stationsPageHandler = null;
       this._settingsPageHandler = null;
+      this._syncManager = null;
     });
   }
 }
